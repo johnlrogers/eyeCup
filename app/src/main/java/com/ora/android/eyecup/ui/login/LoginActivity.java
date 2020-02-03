@@ -165,7 +165,7 @@ public class LoginActivity extends AppCompatActivity {
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Log.e("Login:OnClickListener", "Login LoginListener");
+                Log.d("Login:OnClickListener", "Login LoginListener");
 
 //                loadingProgressBar.setVisibility(View.VISIBLE);
 //JLR 20200126

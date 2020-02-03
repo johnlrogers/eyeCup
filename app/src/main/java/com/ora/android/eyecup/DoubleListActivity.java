@@ -77,7 +77,7 @@ public class DoubleListActivity extends AppCompatActivity {
 
         @Override
         public void onClick(View v) {
-            Log.e("DoubleList:OnClickListener", "DoubleList btnContinueListener");
+            Log.d("DoubleList:OnClickListener", "DoubleList btnContinueListener");
 
 //            if (!validateResponse()){       //invalid response
 //                return;
@@ -87,11 +87,12 @@ public class DoubleListActivity extends AppCompatActivity {
             try {
                 finish();
 
-                int iNextActId = alwaysService.getNextActivityIdx();
+                int iNextActId = alwaysService.setNextActivityIdx();
                 alwaysService.GotoEvtAct(iNextActId);
 
             } catch (Exception e) {
-                Log.e("DoubleList:Finish", e.toString());
+                Log.e("DoubleListActivity:onClick:Finish", e.toString());
+                //todo handle
             }
         }
     };

@@ -152,11 +152,12 @@ public class SingleRadioBtnsActivity extends AppCompatActivity {
             try {
                 finish();
 
-                int iNextActId = alwaysService.getNextActivityIdx();
+                int iNextActId = alwaysService.setNextActivityIdx();
                 alwaysService.GotoEvtAct(iNextActId);
 
             } catch (Exception e) {
-                Log.e("SingleRadioBtn:Finish", e.toString());
+                Log.e("SingleRadioBtnActivity:onClick:Finish", e.toString());
+                //todo handle
             }
         }
     };

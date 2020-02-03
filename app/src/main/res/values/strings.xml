@@ -41,7 +41,7 @@
     <string name="admin_create_part">Create Participant</string>
     <string name="admin_btn_save">Save Participant Data</string>
 
-    <string name="main_title">Click to Start</string>
-    <string name="main_inst">Click below to Start</string>
+    <string name="main_title">Welcome</string>
+    <string name="main_inst">Welcome</string>
 
 </resources>

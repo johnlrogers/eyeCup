@@ -1,5 +1,7 @@
 package com.ora.android.eyecup.data;
 
+import android.util.Log;
+
 import com.ora.android.eyecup.DatabaseAccess;
 import com.ora.android.eyecup.Global;
 import com.ora.android.eyecup.data.model.LoggedInUser;
@@ -23,8 +25,9 @@ public class LoginDataSource {
 
         try {
             dba.open();
-        } catch (NullPointerException ex) {
-        //todo handle exception
+        } catch (NullPointerException e) {
+            Log.e("LoginDS:dba.open:Ex", e.toString());
+            //todo handle
         }
         Object[][] patInfo = dba.GetParticipantInfo();
         dba.close();
@@ -39,11 +42,13 @@ public class LoginDataSource {
                     password = patInfo[1][i].toString();
             }
 
+            //todo logic next few lines needs looked at
             String strPatNum;
             try {
                 strPatNum = patNum.toString();
-            } catch (NullPointerException ex) {
-                //todo handle exception
+            } catch (NullPointerException e) {
+                Log.e("LoginDS:patNum.toString:NPEx", e.toString());
+                //todo handle
             }
             LoggedInUser patient = new LoggedInUser(patNum.toString(), "Patient " + patNum.toString());
             LoggedInUser administrator = new LoggedInUser("Admin", "Administrator");
@@ -61,7 +66,12 @@ public class LoginDataSource {
             }
 
             exception = new Exception("Incorrect username or password.");
-        } catch (Exception e) { exception = e; }
+
+        } catch (Exception e) {
+            Log.e("LoginDS:CursorGetInnerJSON:resultObj.put:Ex", e.toString());
+            //todo handle
+            exception = e;
+        }
         return new Result.Error(new IOException("Error logging in", exception));
     }
 

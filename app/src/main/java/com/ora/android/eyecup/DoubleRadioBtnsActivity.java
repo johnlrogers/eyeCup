@@ -190,7 +190,7 @@ public class DoubleRadioBtnsActivity extends AppCompatActivity {
 
         @Override
         public void onClick(View v) {
-            Log.e("DoubleRadioBtns:OnClickListener", "DoubleRadioBtns btnContinueListener");
+            Log.d("DoubleRadioBtns:OnClickListener", "DoubleRadioBtns btnContinueListener");
 
             if (!validateResponse()){       //invalid response
                 return;
@@ -200,11 +200,12 @@ public class DoubleRadioBtnsActivity extends AppCompatActivity {
             try {
                 finish();
 
-                int iNextActId = alwaysService.getNextActivityIdx();
+                int iNextActId = alwaysService.setNextActivityIdx();
                 alwaysService.GotoEvtAct(iNextActId);
 
             } catch (Exception e) {
-                Log.e("DoubleRadioBtns:Finish", e.toString());
+                Log.e("DoubleRadioBtnsActivity:onClick:Finish:Ex", e.toString());
+                //todo handle
             }
         }
     };

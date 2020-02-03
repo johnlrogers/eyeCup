@@ -52,12 +52,13 @@ public class InstructionActivity extends AppCompatActivity {
                 finish();
 
                 if (miCurActId != 999) {                                //Not "no more activities"
-                    int iNextActId = alwaysService.getNextActivityIdx();
+                    int iNextActId = alwaysService.setNextActivityIdx();
                     alwaysService.GotoEvtAct(iNextActId);
                 }
 
             } catch (Exception e) {
-                Log.e("Instruction:Finish", e.toString());
+                Log.e("InstructionActivity:onClick:Finish", e.toString());
+                //todo handle
             }
         }
     };

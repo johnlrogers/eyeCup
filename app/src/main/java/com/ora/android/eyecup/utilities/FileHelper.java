@@ -22,11 +22,12 @@ public class FileHelper {
 //    public static String ReadFile( Context context){
 //    public static String ReadFile(String path, String fileName){
     public String ReadFile(String path, String fileName){
-        String line = null;
+        String line ;
         String strFile = null;
 
         //todo Warning:(28, 45) String values are compared using '!=', not 'equals()'
-        if (path.substring(path.length()-1) != "/") {
+//        if (path.substring(path.length()-1) != "/") {
+        if (!(path.substring(path.length()-1).equals("/"))) {
             path = path + "/";
         }
         try {
@@ -38,19 +39,22 @@ public class FileHelper {
             while ( (line = bufferedReader.readLine()) != null )
             {
                 //todo Warning:(39, 31) String concatenation as argument to 'StringBuilder.append()' call
-                stringBuilder.append(line + System.getProperty("line.separator"));
+//                stringBuilder.append(line + System.getProperty("line.separator"));
+                stringBuilder.append(line);
+                stringBuilder.append(System.getProperty("line.separator"));
             }
             fileInputStream.close();
             strFile = stringBuilder.toString();
 
             bufferedReader.close();
         }
-        catch(FileNotFoundException ex) {
-            Log.d(TAG, ex.getMessage());
+        catch(FileNotFoundException e) {
+            Log.e("FH:ReadFile:FNFEx", e.toString());
+            //todo handle
         }
-        catch(IOException ex) {
-            // todo handle
-            Log.d(TAG, ex.getMessage());
+        catch(IOException e) {
+            Log.e("FH:ReadFile:IOEx", e.toString());
+            //todo handle
         }
         return strFile;
     }
@@ -68,11 +72,12 @@ public class FileHelper {
             fileOutputStream.write((data + System.getProperty("line.separator")).getBytes());
 
             return true;
-        }  catch(FileNotFoundException ex) {
-            Log.d(TAG, ex.getMessage());
-        }  catch(IOException ex) {
+        }  catch(FileNotFoundException e) {
+            Log.e("FH:saveToFile:FNFEx", e.toString());
             //todo handle
-            Log.d(TAG, ex.getMessage());
+        }  catch(IOException e) {
+            Log.e("FH:saveToFile:IOEx", e.toString());
+            //todo handle
         }
         return  false;
 

@@ -79,6 +79,8 @@ public class RestartServiceBroadcastReceiver extends BroadcastReceiver {
             context.unregisterReceiver(restartSensorServiceReceiver);
         } catch (Exception e){
             // not registered
+            Log.e("JobSvc:unregisterReceiver:Ex", e.toString());
+            //todo handle
         }
 
         new Handler().postDelayed(new Runnable() {
@@ -93,9 +95,12 @@ public class RestartServiceBroadcastReceiver extends BroadcastReceiver {
                 try {
                     context.registerReceiver(restartSensorServiceReceiver, filter); //register the receiver
                 } catch (Exception e) {                                             //failed?
+                    Log.e("RSBR:run:registerReceiver:Ex", e.toString());
+                    //todo handle
                     try {
                         context.getApplicationContext().registerReceiver(restartSensorServiceReceiver, filter); //use context.getApplicationContext
-                    } catch (Exception ex) {
+                    } catch (Exception e2) {
+                        Log.e("RSBR:run:getApplicationContext:Ex", e2.toString());
                         //todo handle
                     }
                 }

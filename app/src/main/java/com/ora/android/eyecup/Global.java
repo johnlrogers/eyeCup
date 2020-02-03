@@ -3,6 +3,7 @@ package com.ora.android.eyecup;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -60,7 +61,8 @@ public class Global { //use for all common activity functionality //edit: combin
 
         try {
             GetCurrActivity().startActivity(new Intent(GetCurrActivity(), toActivityClass));
-        } catch (NullPointerException ex) {
+        } catch (NullPointerException e) {
+            Log.e("Global:Navigate:Ex", e.toString());
             //todo handle
         }
     }
@@ -97,6 +99,8 @@ public class Global { //use for all common activity functionality //edit: combin
     public <T extends View> T GetView(int id) {
 
         //todo Warning:(91, 16) Unchecked cast: 'android.view.View' to 'T'
+        //todo does this work from fragment?
+        //todo Warning findViewById may produce NullPointerException
         return (T)GetCurrActivity().findViewById(id);
     }
     private AppCompatActivity GetCurrActivity() {

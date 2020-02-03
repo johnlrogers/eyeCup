@@ -177,7 +177,7 @@ public class AlwaysService extends Service {
             Log.i(TAG, "restartForeground success");
                 startTimer();
         } catch (Exception e) {
-            Log.e(TAG, "restartForeground error: " + e.getMessage());
+            Log.e(TAG, "AlwaysService:restartForeground:Ex: " + e.getMessage());
         }
     }
 
@@ -226,8 +226,7 @@ public class AlwaysService extends Service {
         Log.i(TAG, "initializeTimerTask()");
         timerTask = new TimerTask() {
             public void run() {
-                Log.i(TAG, "Time running, timer loop: " + (counter++));     //todo turn off in release?
-
+//                Log.d(TAG, "Time running, timer loop: " + (counter++));     //todo turn off in release?
                 AlwaysServiceStateMachine();            //execute the State Machine
             }
         };
@@ -278,12 +277,12 @@ public class AlwaysService extends Service {
         Intent intent;
 
         if ((mPrevState != mState) || (mPrevEventState != mEventState)){        //Service or Event State changed?
-            if (mPrevState != mState) {
-                Log.i(TAG, "AlwaysServiceStateMachine(), State: " + mPrevState + "->" + mState);                    //Log State
-            }
-            if (mPrevEventState != mEventState) {
-                Log.i(TAG, "AlwaysServiceStateMachine(), EventState: " + mPrevEventState + "->" + mEventState);     //Log Event State
-            }
+//            if (mPrevState != mState) {
+                Log.i(TAG, "AlwaysServiceStateMachine(), State: " + mPrevState + " -> " + mState);                    //Log State
+//            }
+//            if (mPrevEventState != mEventState) {
+                Log.i(TAG, "AlwaysServiceStateMachine(), EventState: " + mPrevEventState + " -> " + mEventState);     //Log Event State
+//            }
             mPrevState = mState;                                                    //set Prev Svc state
             mPrevEventState = mEventState;                                          //set prev Event state
             String strNextEventTime;                                                //string for next event time
@@ -300,7 +299,7 @@ public class AlwaysService extends Service {
                     break;
 
                 case ALWAYS_SVC_STATE_EVT_WIN_EXPIRE:
-                    strNextEventTime = getNextEvtDtStr();
+                    strNextEventTime = setNextEvtDtStr();
                     intent = new Intent(this, IdleActivity.class);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.putExtra("ActTxt", "Event Missed.  Your next event is at " + strNextEventTime);
@@ -326,12 +325,15 @@ public class AlwaysService extends Service {
                         case ALWAYS_SVC_EVENT_ABORT:
                             break;
                         case ALWAYS_SVC_EVENT_COMPLETE:
-                            strNextEventTime = getNextEvtDtStr();
+                            strNextEventTime = setNextEvtDtStr();
                             intent = new Intent(this, IdleActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             intent.putExtra("ActTxt", "Thank you for participating.  Your next event is at " + strNextEventTime);
                             intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                             startActivity(intent);
+
+                            mState = ALWAYS_SVC_STATE_POLL;
+
                             break;
                         case ALWAYS_SVC_EVENT_LOGOUT:
                             break;
@@ -359,7 +361,6 @@ public class AlwaysService extends Service {
                     break;
             }
         }
-
         return getAlwaysServiceState();
     }
 
@@ -385,7 +386,8 @@ public class AlwaysService extends Service {
             DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
             try {
                 dba.open();                                                                 //open db
-            } catch (NullPointerException ex) {
+            } catch (NullPointerException e) {
+                Log.e("AlwaysService:setNextProtRevEvtIdx:NPEx", e.toString());
                 //todo handle
             }
             String strQry = "SELECT * FROM tProtRevEvent";
@@ -419,7 +421,7 @@ public class AlwaysService extends Service {
         return miCurActIdx;
     }
 
-    public String getNextEvtDtStr() {
+    public String setNextEvtDtStr() {
 
         LocalDateTime locDt = LocalDateTime.now();
 //        LocalDateTime locDtFlr =  locDt.truncatedTo(ChronoUnit.MINUTES);
@@ -434,7 +436,8 @@ public class AlwaysService extends Service {
             DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
             try {
                 dba.open();                                                                 //open db
-            } catch (NullPointerException ex) {
+            } catch (NullPointerException e) {
+                Log.e("AlwaysService:getNextEvtDtStr:NPEx", e.toString());
                 //todo handle
             }
 
@@ -446,6 +449,16 @@ public class AlwaysService extends Service {
         }
 
 //        return mDtNextEvtStart.toString();
+        return mDtNextEvtStart.format(fmtDt);
+    }
+
+    public String getNextEvtDtStr() {
+
+        if (mDtNextEvtStart == null) {
+            return setNextEvtDtStr();
+        }
+
+        DateTimeFormatter fmtDt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         return mDtNextEvtStart.format(fmtDt);
     }
 
@@ -477,45 +490,44 @@ public class AlwaysService extends Service {
             return mState;                              //stay there
         }
 
-        int iEvtState = 0;
-        LocalDateTime dtNow = LocalDateTime.now();
+        if (mState == ALWAYS_SVC_STATE_EVT_WIN_RUNNING) {   //Event Running state?
+            return mState;                                      //stay there
+        }
 
         if (mDtNextEvtStart == null) {              //next not populated?
-            getNextEvtDtStr();                          //populate next
+            setNextEvtDtStr();                          //populate next
         }
+
+        LocalDateTime dtNow = LocalDateTime.now();  //get date/time
+
+        /////// If we get here, we know we are NOT Admin State, and NOT Already Running an Event ///////
+
         if (mDtNextEvtStart.isBefore(dtNow)) {      //We are after event Window Open
-
             if (mDtNextEvtWarn.isBefore(dtNow)) {       //We are after Window Open, after Warn
-
                 if (mDtNextEvtExpire.isBefore(dtNow)) {       //We are after Warn and after Expire
-
-                    if (mState != ALWAYS_SVC_STATE_EVT_WIN_RUNNING) {   //Not running?
-                        mState = ALWAYS_SVC_STATE_EVT_WIN_EXPIRE;           //set Missed
+                    if (mState != ALWAYS_SVC_STATE_EVT_WIN_EXPIRE) {    //Not EXPIRE?
+                        mState = ALWAYS_SVC_STATE_EVT_WIN_EXPIRE;           //set Expired
                     }
                 } else {                                    //We are after Warn but before Expire
-                    if (mState != ALWAYS_SVC_STATE_EVT_WIN_RUNNING) {   //Not running?
-                        mState = ALWAYS_SVC_STATE_EVT_WIN_WARN;             //set Warn
+                    if (mState != ALWAYS_SVC_STATE_EVT_WIN_WARN) {  //Not WARN?
+                        mState = ALWAYS_SVC_STATE_EVT_WIN_WARN;         //set Warn
                     }
                 }
-
-            } else {                                    //We are after Window Open, but before Warn
-
-                if (mState != ALWAYS_SVC_STATE_EVT_WIN_RUNNING) {   //Not running?
-                    mState = ALWAYS_SVC_STATE_EVT_WIN_OPEN;             //set Window Open
+            } else {                                    //Otherwise, We are after Window Open, but before Warn
+                if (mState != ALWAYS_SVC_STATE_EVT_WIN_OPEN) {  //Not WIN OPEN?
+                    mState = ALWAYS_SVC_STATE_EVT_WIN_OPEN;         //set Window Open
                 }
             }
-
         } else {                                    //We are before event Window Open
-
-            mState = ALWAYS_SVC_STATE_POLL;             //set Window Open
-
+            mState = ALWAYS_SVC_STATE_POLL;             //Keep Polling
         }
-        return iEvtState;
+        return mState;
     }
 
     /** Get current Always Service State */
     public int getAlwaysServiceState() {
-        Log.i(TAG, "Service State: " + mState);         //Log State
+        Log.d(TAG, "Timer loop: Service State: EventState: " + (counter++) + ": " + mState + ": " + mEventState);         //Log State
+//        Log.d(TAG, "Time running, timer loop: " + (counter++));     //todo turn off in release?
 
         getNextEvtWinState();       //check for state update
         return mState;
@@ -523,40 +535,17 @@ public class AlwaysService extends Service {
 
     private int StartProtocol() {
 
-//        mlCurProtRevId = 1;          //current Protocol Rev Id           //todo Get from Active Event
-//        mlCurProtRevEvtId = 1;       //Current Protocol Rev Event Id     //todo Get from Active Event
-//        mlCurProtRevEvtActId = 0;    //Current Protocol Rev Event Activity Id
         mlCurProtRevId = mArrProtRev.get(setNextProtRevIdx()).getProtocolRevId();                                   //get Current Protocol Rev Id
         mlCurProtRevEvtId = mArrProtRevEvt.get(setNextProtRevEvtIdx()).getProtocolRevEventId();                     //get Current Protocol Rev Event Id
         mlCurProtRevEvtActId = mArrProtRevEvtAct.get(setNextProtRevEvtActIdx()).getProtocolRevEventActivityId();    //get Current Protocol Rev Event Activity Id
-//        miCurActIdx = 0;             //Current mArrProtRevEvtAct Index
 
         GotoEvtAct(miCurActIdx);
 
-//        for (int i = 0; i < mArrProtRevEvt.size(); i++) {                           //iterate rev events
-//            if (mArrProtRevEvt.get(i).getProtocolRevEventId() == mlCurProtRevId) {      //event id part of current protRev?
-//                //ProtRevEvt.equals(mArrProtRevEvt.get(i));
-//                break;                                                                      //bail, we found it
-//            }
-//        }
-
-//        for (int j = 0; j < mArrProtRevEvtAct.size(); j++) {
-//            if (mArrProtRevEvtAct.get(j).getProtocolRevEventId() == mlCurProtRevId) {
-//
-//                miCurActIdx = j;             //set current activity index
-//                GotoEvtAct(miCurActIdx);
-//            }
-//            if (miCurActIdx == j) {
-//                break;
-//            }
-//        }
-//        lRet = miCurActIdx;
         return miCurActIdx;
     }
 
 
     private boolean GetProtocolFromDb() {
-        boolean bRet = false;
 
         ProtocolRevision newProtRev = new ProtocolRevision();             //current Protocol Rev
         ProtocolRevEvent newProtRevEvt = new ProtocolRevEvent();          //Current Protocol Rev Event
@@ -577,7 +566,8 @@ public class AlwaysService extends Service {
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
         try {
             dba.open();                                                                 //open db
-        } catch (NullPointerException ex) {
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:GetProtocolFromDB:NPEx", e.toString());
             //todo handle
         }
                                                                                     //select view
@@ -703,25 +693,23 @@ public class AlwaysService extends Service {
         }
 
         crs.close();
-
         dba.close();
-        return bRet;
+
+        return true;
     }
 
     /**
      * initialize directory structure
      */
     private boolean InitDirectoryTree() {
-        boolean bRet = false;
 
-        String strRootDir;
+
+        String strRootDir = this.getDataDir().getPath();            //./...
         File fDir;
         File fFile;
         FileOutputStream fStream;
         String str;
         byte [] sBytes;
-
-        strRootDir = this.getDataDir().getPath();                               //./...
 
         fDir = new File(strRootDir, APP_DIR_PROTOCOL);
 
@@ -739,15 +727,17 @@ public class AlwaysService extends Service {
                 fStream.write(sBytes);
                 fStream.close();
             }
-        } catch (IOException ex) {
-            Log.d("App", ex.getMessage());
+        } catch (IOException e) {
+            Log.e("AlwaysService:InitDirectoryTree:Readme:Ex", e.toString());
+            //todo handle
         }
 
 //        fDir = new File(this.getExternalFilesDir(null), strDir);
         fDir = new File(strRootDir, APP_DIR_PROTOCOL_ARCHIVE);
         if (!fDir.exists()) {
             if (!fDir.mkdirs()) {
-                Log.d("App", "failed to create directory");
+                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_PROTOCOL_ARCHIVE", "failed to create directory");
+                //todo handle
             }
         }
         fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
@@ -759,15 +749,17 @@ public class AlwaysService extends Service {
                 fStream.write(sBytes);
                 fStream.close();
             }
-        } catch (IOException ex) {
-            Log.d("App", ex.getMessage());
+        } catch (IOException e) {
+            Log.e("AlwaysServiceInitDirectoryTree:Ex", e.toString());
+            //todo handle
         }
 
 //        fDir = new File(this.getExternalFilesDir(null), strDir);
         fDir = new File(strRootDir, APP_DIR_PARTICIPANTS);
         if (!fDir.exists()) {
             if (!fDir.mkdirs()) {
-                Log.d("App", "failed to create directory");
+                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_PARTICIPANTS", "failed to create directory");
+                //todo handle
             }
         }
         fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
@@ -779,15 +771,17 @@ public class AlwaysService extends Service {
                 fStream.write(sBytes);
                 fStream.close();
             }
-        } catch (IOException ex) {
-            Log.d("App", ex.getMessage());
+        } catch (IOException e) {
+            Log.e("AlwaysService:InitDirectoryTree:Readme:IOEx", e.toString());
+            //todo handle
         }
 
 //        fDir = new File(this.getExternalFilesDir(null), strDir);
         fDir = new File(strRootDir, APP_DIR_DATA);
         if (!fDir.exists()) {
             if (!fDir.mkdirs()) {
-                Log.d("App", "failed to create directory");
+                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_DATA", "failed to create directory");
+                //todo handle
             }
         }
         fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
@@ -799,8 +793,9 @@ public class AlwaysService extends Service {
                 fStream.write(sBytes);
                 fStream.close();
             }
-        } catch (IOException ex) {
-            Log.d("App", ex.getMessage());
+        } catch (IOException e) {
+            Log.e("AlwaysService:InitDirectoryTree:Readme:IOEx", e.toString());
+            //todo handle
         }
 
         fFile = new File(fDir, APP_DATA_DBNAME);    //Getting a file within the dir.
@@ -814,7 +809,8 @@ public class AlwaysService extends Service {
         fDir = new File(strRootDir, APP_DIR_DATA_ARCHIVE);
         if (!fDir.exists()) {
             if (!fDir.mkdirs()) {
-                Log.d("App", "failed to create directory");
+                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_DATA_ARCHIVE", "failed to create directory");
+                //todo handle
             }
         }
         fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
@@ -826,15 +822,17 @@ public class AlwaysService extends Service {
                 fStream.write(sBytes);
                 fStream.close();
             }
-        } catch (IOException ex) {
-            Log.d("App", ex.getMessage());
+        } catch (IOException e) {
+            Log.e("AlwaysService:InitDirectoryTree:Readme:IOEx", e.toString());
+            //todo handle
         }
 
 //        fDir = new File(this.getExternalFilesDir(null), strDir);
         fDir = new File(strRootDir, APP_DIR_DATA_FRESH);
         if (!fDir.exists()) {
             if (!fDir.mkdirs()) {
-                Log.d("App", "failed to create directory");
+                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_DATA_FRESH", "failed to create directory");
+                //todo handle
             }
         }
         fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
@@ -846,13 +844,15 @@ public class AlwaysService extends Service {
                 fStream.write(sBytes);
                 fStream.close();
             }
-        } catch (IOException ex) {
-            Log.d("App", ex.getMessage());
+        } catch (IOException e) {
+            Log.e("AlwaysService:InitDirectoryTree:Readme:IOEx", e.toString());
+            //todo handle
         }
 
-        return bRet;
+        return true;
     }
 
+    //todo WHEN is installDatabase from Assets called?
     public boolean installDatabaseFromAssets() {
 
         String strRootDir = this.getDataDir().getPath();
@@ -877,12 +877,14 @@ public class AlwaysService extends Service {
             }
         } catch (Exception e) {
             //todo Warning:(872, 11) Some important exceptions might be ignored in a 'catch' block
-            e.getMessage();
+            Log.e("AlwaysService:installDatabaseFromAssets:Ex", e.toString());
+            //todo handle
         }
 
         return true;
     }
 
+    //todo look at using StartStaeMachine
     public boolean StartStateMachine() {
 
         if (!bStateMachineRunning) {                    //Not running yet?
@@ -892,9 +894,10 @@ public class AlwaysService extends Service {
 //            } else {                                         //otherwise
                 mState = ALWAYS_SVC_STATE_POLL;                 //start polling
 //            }
-            mEventState = ALWAYS_SVC_EVENT_NONE;            //No event in progress
+//            mEventState = ALWAYS_SVC_EVENT_NONE;            //No event in progress
+            setServiceEventState(ALWAYS_SVC_EVENT_NONE);    //
         }
-        return bStateMachineRunning;
+        return true;
     }
 
     public int StartEvent() {
@@ -907,11 +910,15 @@ public class AlwaysService extends Service {
     }
 
     /* Get next Activity Index in the Event */
-    public int getNextActivityIdx() {
+    public int setNextActivityIdx() {
         miCurActIdx++;                                                                              //increment activity index
         while (mArrProtRevEvtAct.get(miCurActIdx).getProtocolRevEventId() != mlCurProtRevEvtId) {   //different event?
             miCurActIdx++;                                                                              //increment again
-            if (miCurActIdx == mArrProtRevEvtAct.size()) {                                              //passed end of array?
+            if (miCurActIdx == mArrProtRevEvtAct.size()) {              //passed end of array?
+ //               miCurActIdx = 0;    //todo best way to finish event?
+//                mEventState = ALWAYS_SVC_EVENT_COMPLETE;
+                setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
+                AlwaysServiceStateMachine();                                //exercise state machine
                 break;                                                                                      //bail
             }
         }
@@ -940,6 +947,15 @@ public class AlwaysService extends Service {
         }
     }
 
+    public String getActivityPictureCodeIdx(int j) {
+
+        if (mArrProtRevEvtAct.size() <= j) {
+            return "";
+        } else {
+            return mArrProtRevEvtAct.get(j).getActivityPictureCode();
+        }
+    }
+
     public EventActivity getActivityFromIdx(int j) {
 
         if (mArrProtRevEvtAct.size() <= j) {
@@ -956,25 +972,10 @@ public class AlwaysService extends Service {
         boolean bBoth = false;
 
         if (iCurActIdx >= mArrProtRevEvtAct.size()) {   //activity index too high?
-//            intent = new Intent(this, InstructionActivity.class);
-//            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-//            intent.putExtra("ActId", 0);
-//            intent.putExtra("ActTxt", "Thank you for participating.");
-//            intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-//            startActivity(intent);
-            setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);
-            AlwaysServiceStateMachine();
+            setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
+            AlwaysServiceStateMachine();                                //exercise state machine
             return;
         }
-//        if (iCurActIdx == 0) {                          //no activity   //todo handle for real
-//            intent = new Intent(this, InstructionActivity.class);
-//            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-//            intent.putExtra("ActId", 999);
-//            intent.putExtra("ActTxt", "No further activities.  Click continue to run the demo again.");
-//            intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-//            startActivity(intent);
-//            return;
-//        }
 
         ActivityResponse actRsp;
         ArrayList<ActivityResponse> arrActRsp = new ArrayList<>();   //Event Activity Responses
@@ -1005,15 +1006,18 @@ public class AlwaysService extends Service {
 
         switch (mArrProtRevEvtAct.get(iCurActIdx).getActivityTypeId().intValue()) {                     //switch Activity Type
             case ACTIVITY_TYPE_INSTRUCTION:                                                             //Instruction
+                Log.d("AlwaysService", "GotoEvtAct: ACTIVITY_TYPE_INSTRUCTION");
+
                 intent = new Intent(this, InstructionActivity.class);
+                intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 intent.putExtra("ActIdx", miCurActIdx);
                 intent.putExtra("ActTxt", mArrProtRevEvtAct.get(iCurActIdx).getActivityText());
-                intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                 startActivity(intent);
                 break;
 
             case ACTIVITY_TYPE_QUESTION:                                                                //Question
+                Log.d("AlwaysService", "GotoEvtAct: ACTIVITY_TYPE_QUESTION");
 
                 iRspTypeId = mArrProtRevEvtAct.get(iCurActIdx).getActivityResponseTypeId().intValue();      //Get Response Type
                 switch (iRspTypeId) {                                                                       //Switch Response Type
@@ -1025,10 +1029,10 @@ public class AlwaysService extends Service {
                             intent = new Intent(this, SingleRadioBtnsActivity.class);               //use single
                         }
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                         intent.putExtra("ActIdx", miCurActIdx);
                         intent.putExtra("ActTxt", mArrProtRevEvtAct.get(iCurActIdx).getActivityText());
                         intent.putExtra("ActRsp", strRsps);
-                        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                         startActivity(intent);
                         break;
                         //TODO test List types, until then rdb only
@@ -1051,11 +1055,11 @@ public class AlwaysService extends Service {
                             intent = new Intent(this, SingleSeekBarActivity.class);                 //use single
                         }
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                         intent.putExtra("ActIdx", miCurActIdx);
                         intent.putExtra("ActTxt", mArrProtRevEvtAct.get(iCurActIdx).getActivityText());
                         intent.putExtra("RspMin", mArrProtRevEvtAct.get(iCurActIdx).getMinRange());
                         intent.putExtra("RspMax", mArrProtRevEvtAct.get(iCurActIdx).getMaxRange());
-                        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                         startActivity(intent);
                         break;
                     case RESPONSE_TYPE_CHK:
@@ -1068,13 +1072,17 @@ public class AlwaysService extends Service {
                 break;
 
             case ACTIVITY_TYPE_PICTURE:                                                                 //Picture
+                Log.d("AlwaysService", "GotoEvtAct: ACTIVITY_TYPE_PICTURE");
                 intent = new Intent(this, CameraActivity.class);   //todo picture class
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+//                intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 intent.putExtra("ActIdx", miCurActIdx);
                 intent.putExtra("ActTxt", mArrProtRevEvtAct.get(iCurActIdx).getActivityText());
+                intent.putExtra("ActPicCode", mArrProtRevEvtAct.get(iCurActIdx).getActivityPictureCode());
                 intent.putExtra("PatNum", getPatNumber());
-                intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                 startActivity(intent);
+
                 break;
             default:
                 break;
@@ -1105,8 +1113,6 @@ public class AlwaysService extends Service {
     }
 
     public int TryLogin(String username, String password) {
-        Exception exception = null;
-        //JLR 20200126
 
         if (username.equals(LOGIN_ADMIN_NAME)) {        //admin user name?
             if (password.equals(LOGIN_ADMIN_PW)) {          //password OK?
@@ -1122,7 +1128,8 @@ public class AlwaysService extends Service {
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
         try {
             dba.open();                                                                 //open database
-        } catch (NullPointerException ex) {
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:TryLogin:NPEx", e.toString());
             //todo handle
         }
 //        Object[][] patInfo = dba.GetParticipantInfo();
@@ -1216,7 +1223,11 @@ public class AlwaysService extends Service {
                     for (int j = 0; j < spnComponents.length; j++)
                         components[j] = Integer.parseInt(spnComponents[j]);
                 }
-                catch (Exception ex) { components = null; }
+                catch (Exception e) {
+                    Log.e("AlwaysService:getParticipantInfoEntity:Ex", e.toString());
+                    //todo handle
+                    components = null;
+                }
                 if (components != null) {
                     event.setYearId(components[0].toString());
                     event.setDepartmentId(components[1].toString());
@@ -1250,8 +1261,8 @@ public class AlwaysService extends Service {
         participantEvent.setProtocolRevEventId(protocolRevEventId);
         participantEvent.setEventId(eventId);
         participantEvent.setPatEventDtStart(dFormat.format(Calendar.getInstance().getTime()));
-        participantEvent.setPatEventResponseCnt(new Long(0));
-        participantEvent.setPatEventPictureCnt(new Long(0));
+        participantEvent.setPatEventResponseCnt(0L);
+        participantEvent.setPatEventPictureCnt(0L);
         dba.open();
         dba.InsertParticipantEvent(participantEvent);
         dba.close();
@@ -1261,7 +1272,12 @@ public class AlwaysService extends Service {
         if (entity == null)
             return; //returned for method misuse
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());
-        dba.open();
+        try {
+            dba.open();
+        } catch (NullPointerException e ) {
+            Log.e("AlwaysService:CommitActivityInfo:NPEx", e.toString());
+            //todo handle
+        }
         if (entity.getClass().equals(PatEventResponse.class)) {
             dba.InsertParticipantResponse(patEvtId, (PatEventResponse)entity);
             dba.UpdateParticipantEventChildCnt(patEvtId, true, GetPatActivityRespOrPicCnt(patEvtId, false, dba));
@@ -1281,6 +1297,7 @@ public class AlwaysService extends Service {
             if (data.get(0)[i].equals("PatEvtId")) {
                 for (int j = 1; j < data.size(); j++) {
                     if ((long)data.get(j)[i] == patEvtId) {
+                        //todo Warning Condition 'k.data.size()' is always true
                         for (int k = 1; k < data.size(); j++) {
                             if (!isPicture)
                                 if (data.get(0)[k].equals("PatEvtResponseCnt")) {

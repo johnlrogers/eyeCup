@@ -39,7 +39,8 @@ public class JobService extends android.app.job.JobService {
         else try {
             unregisterReceiver(restartSensorServiceReceiver);
         } catch (Exception e){
-            // not registered
+            Log.e("JobSvc:registerRestarterReceiver:Ex", e.toString());
+            //todo handle
         }
 
         new Handler().postDelayed(new Runnable() {
@@ -54,9 +55,11 @@ public class JobService extends android.app.job.JobService {
                 try {
                    registerReceiver(restartSensorServiceReceiver, filter);      //register the receiver
                 } catch (Exception e) {                                             //failed?
+                    Log.e("JobSvc:restartSensorServiceReceiver:Ex", e.toString());
                     try {
                         getApplicationContext().registerReceiver(restartSensorServiceReceiver, filter); //use context.getApplicationContext
-                    } catch (Exception ex) {
+                    } catch (Exception e2) {
+                        Log.e("JobSvc:registerReceiver:Ex", e2.toString());
                         //todo handle
                     }
                 }
@@ -87,7 +90,8 @@ public class JobService extends android.app.job.JobService {
             try{
                 instance.unregisterReceiver(restartSensorServiceReceiver);
             } catch (Exception e){
-                // not registered
+                Log.e("JobSvc:stopJob:Ex", e.toString());
+                //todo handle
             }
             Log.i(TAG, "Finishing job");
             instance.jobFinished(jobParameters, true);

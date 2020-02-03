@@ -129,11 +129,12 @@ public class DoubleSeekBarActivity extends AppCompatActivity {
             try {
                 finish();
 
-                int iNextActId = alwaysService.getNextActivityIdx();
+                int iNextActId = alwaysService.setNextActivityIdx();
                 alwaysService.GotoEvtAct(iNextActId);
 
             } catch (Exception e) {
-                Log.e("DoubleSeekBar:Finish", e.toString());
+                Log.e("DoubleSeekBarActivity:onClick:Finish", e.toString());
+                //todo handle
             }
         }
     };

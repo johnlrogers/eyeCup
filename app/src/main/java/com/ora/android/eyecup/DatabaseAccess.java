@@ -4,6 +4,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -89,14 +90,18 @@ public class DatabaseAccess {
                 for (int i = 0; i < c.getColumnCount(); i++)
                     innerObject.put(c.getColumnName(i), CursorGetObj(i));
             }
-            catch (Exception ex) {
+            catch (Exception e) {
+                Log.e("DA:CursorGetInnerJSON:innerObject.put:Ex", e.toString());
                 //todo handle
             }
             innerArray.put(innerObject);
             c.moveToNext();
         }
-        try { resultObj.put(innerObjectName, innerArray); }
-        catch (Exception ex) {
+        try {
+            resultObj.put(innerObjectName, innerArray);
+        }
+        catch (Exception e) {
+            Log.e("DA:CursorGetInnerJSON:resultObj.put:Ex", e.toString());
             //todo handle
         }
         return resultObj;
@@ -127,14 +132,16 @@ public class DatabaseAccess {
             db.execSQL(sqlCmd);
             success = true;
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:SetParticipantInfo:Ex", e.toString());
             //todo handle
         }
         return success;
     }
     public Object[][] GetParticipantInfo() { //returns null if no participant exists
         try { c = db.rawQuery("SELECT * FROM tParticipant LIMIT 1;", new String[] { }); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:GetParticipantInfo:Ex", e.toString());
             //todo handle
         }
         Object[][] selectedVals = new Object[2][c.getCount()];
@@ -151,7 +158,8 @@ public class DatabaseAccess {
     }
     public List<Object[]> GetTableData(String tblName) { //first row is column names
         try { c = db.rawQuery("SELECT * FROM " + tblName + ";", new String[] { }); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:GetTableData:Ex", e.toString());
             //todo handle
         }
         List<Object[]> selectedVals = new ArrayList<>();
@@ -176,7 +184,8 @@ public class DatabaseAccess {
             view = "vProtRevEvtActivities";
         try { c = db.rawQuery("SELECT " + selectCol + " FROM " + view + " WHERE " + whereCol + " = " + whereVal + ";",
                 new String[] { }); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:CallView:Ex", e.toString());
             //todo handle
         }
         Object[] selectedVals = new Object[c.getCount()];
@@ -193,7 +202,8 @@ public class DatabaseAccess {
         String fileName = FormatFileName("files/Archives/ORADb_Backup", ".db",
                 new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
         try { MoveTo(db.getPath(), fileName, true); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:BackupDb:Ex", e.toString());
             //todo handle
         }
         return fileName;
@@ -202,7 +212,8 @@ public class DatabaseAccess {
         if (name == null)
             return; //returned for method misuse
         try { db.execSQL("DELETE FROM " + name + ";"); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:clearTable:Ex", e.toString());
             //todo handle
         }
     }
@@ -216,7 +227,8 @@ public class DatabaseAccess {
                     event.getPatEventDtStart() + "', " + event.getPatEventResponseCnt().toString() + ", " +
                     event.getPatEventPictureCnt().toString() + ";");
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertParticipantEvent:Ex", e.toString());
             //todo handle
         }
     }
@@ -225,7 +237,8 @@ public class DatabaseAccess {
         if (!isResponse)
             colName = "PatEvtPictureCnt";
         try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = " + count + " WHERE PatEvtId = " + patEvtId + ";"); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:UpdateParticipantEventChildCnt:Ex", e.toString());
             //todo handle
         }
     }
@@ -238,7 +251,8 @@ public class DatabaseAccess {
                     response.getResponseVal().toString() + ", '" + response.getResponseTxt() + "', '" + response.getResponseDt() +
                     "');");
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertParticipantResponse:Ex", e.toString());
             //todo handle
         }
     }
@@ -250,13 +264,15 @@ public class DatabaseAccess {
                     + patEvtId + ", " + picture.getProtocolRevEventActivityId().toString() + ", '" + picture.getPictureFileName() +
                     "', '" + picture.getPictureDt() + "');");
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertParticipantPicture:Ex", e.toString());
             //todo handle
         }
     }
     public void MarkParticipantEventEnded(long patEvtId, String date) { //edit: call when ended
         try { db.execSQL("UPDATE tParticipantEvent SET PatEvtDtEnd = '" + date + "' WHERE PatEvtId = " + patEvtId + ";"); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:MarkParticipantEventEnded:Ex", e.toString());
             //todo handle
         }
     }
@@ -265,7 +281,8 @@ public class DatabaseAccess {
             return; //returned for method misuse
         try { db.execSQL("UPDATE tParticipantEvent WHERE PatEvtId = " + newEvent.getPatEventId().toString() + " SET PatEvtDtUpload = '" +
                 newEvent.getPatEventDtUpload() + "';"); }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertParticipantEventUploaded:Ex", e.toString());
             //todo handle
         }
     }
@@ -279,7 +296,8 @@ public class DatabaseAccess {
                     entity.getProtocolRevId().toString() + ", '" + entity.getProtocolName() + "', '" + entity.getProtocolRevName() +
                     "', '" + entity.getProtocolRevDt() + "');");
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertProtocolRevision:Ex", e.toString());
             //todo handle
         }
     }
@@ -295,7 +313,8 @@ public class DatabaseAccess {
                     + "', " + entity.getEventDayStart().toString() + ", '" + entity.getEventTimeOpen() + "', '" +
                     entity.getEventTimeWarn() + "', '" + entity.getEventTimeClose() + "');");
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertProtocolRevEvent:Ex", e.toString());
             //todo handle
         }
     }
@@ -313,7 +332,8 @@ public class DatabaseAccess {
                     entity.getActivityResponseTypeId().toString() + ", '" + entity.getActivityText() + "', '" +
                     entity.getActivityPictureCode() + "');");
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertEventActivity:Ex", e.toString());
             //todo handle
         }
     }
@@ -329,7 +349,8 @@ public class DatabaseAccess {
                     entity.getActRspId().toString() + ", " + entity.getActId().toString() + ", " + entity.getActRspSeq().toString() +
                     ", " + entity.getActRspValue().toString() + ");");
         }
-        catch (Exception ex) {
+        catch (Exception e) {
+            Log.e("DA:InsertActivityResponse:Ex", e.toString());
             //todo handle
         }
     }
@@ -379,7 +400,7 @@ public class DatabaseAccess {
                     pre.get("FrequencyCode").getAsString(), pre.get("EventDayStart").getAsLong(),
                     pre.get("EventTimeOpen").getAsString(), pre.get("EventTimeWarn").getAsString(),
                     //todo Warning:(344, 105) Use `Long.valueOf(0)` instead
-                    pre.get("EventTimeClose").getAsString(), OptionalOrDefault(pre, "EventActivityCnt", new Long(0)),
+                    pre.get("EventTimeClose").getAsString(), OptionalOrDefault(pre, "EventActivityCnt", 0L),
                     ToEAEntityList(OptionalOrDefault(pre, "EventActivities", new JsonArray()))));
         }
         return entityList;
@@ -396,8 +417,8 @@ public class DatabaseAccess {
                     ea.get("ActivityTypeCode").getAsString(), OptionalOrDefault(ea, "ActivityText", ""),
                     ea.get("ActivityResponseTypeId").getAsLong(), ea.get("ActivityResponseTypeCode").getAsString(),
                     ea.get("ActivityResponseCnt").getAsLong(), ToAREntityList(OptionalOrDefault(ea, "ActivityResponses",
-                    new JsonArray())), OptionalOrDefault(ea, "MinRange", new Long(0)),
-                    OptionalOrDefault(ea, "MaxRange", new Long(0)), OptionalOrDefault(ea,
+                    new JsonArray())), OptionalOrDefault(ea, "MinRange", 0L),
+                    OptionalOrDefault(ea, "MaxRange", 0L), OptionalOrDefault(ea,
                     "ActivityPictureCode", "")));
         }
         return entityList;
@@ -444,24 +465,37 @@ public class DatabaseAccess {
                 || innerImagesDbView == null || caller == null)
             return fileName;
         try { c = db.rawQuery("SELECT * FROM " + outerObjectDbView + " LIMIT 1;", null); }
-        catch (Exception ex) { return fileName; }
+        catch (Exception e) {
+            Log.e("DA:CreateJSON.rawQuery:Ex", e.toString());
+            //todo handle
+            return fileName;
+        }
         JSONObject resultObj = new JSONObject();
         c.moveToFirst();
         for (int i = 0; i < c.getColumnCount(); i++) {
             try { resultObj.put(c.getColumnName(i), CursorGetObj(i)); }
-            catch (Exception ex) {
+            catch (Exception e) {
+                Log.e("DA:CreateJSON.put:IOEx", e.toString());
                 //todo handle
             }
         }
         c.close();
         try { c = db.rawQuery("SELECT * FROM " + innerObjectsDbView + ";", null); }
-        catch (Exception ex) { return fileName; }
+        catch (Exception e) {
+            Log.e("DA:CreateJSON.rawQuery:IOEx", e.toString());
+            //todo handle
+            return fileName;
+        }
 
         //todo Warning:(459, 9) Variable is already assigned to this value
         resultObj = CursorGetInnerJSON(resultObj, innerObjectsName);
         c.close();
         try { c = db.rawQuery("SELECT * FROM " + innerImagesDbView + ";", null); }
-        catch (Exception ex) { return fileName; }
+        catch (Exception e) {
+            Log.e("DA:CreateJSON.rawQuery:IOEx", e.toString());
+            //todo handle
+            return fileName;
+        }
 
         //todo Warning:(463, 9) Variable is already assigned to this value
         resultObj = CursorGetInnerJSON(resultObj, innerImagesName);
@@ -472,13 +506,13 @@ public class DatabaseAccess {
             fileOutputStream.write(resultObj.toString(4).getBytes());
             fileOutputStream.close();
         }
-        catch (Exception ex) {
+        catch (Exception e) {
             //todo handle
         }
         fileName = FormatFileName("files/Patient_Identifier/Events/" + relFileName, ".json",
                 new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
         try { MoveTo(FormatFileName("files/" + relFileName, ".json", null), fileName, false); }
-        catch (Exception ex) {
+        catch (Exception e) {
             //todo handle
         }
         return fileName;

@@ -33,18 +33,18 @@ public class CameraActivity extends AppCompatActivity {
 
     Camera2BasicFragment fmCamera;
     private TextView txtInstruction;
-    private Globals glob;
     private boolean isBound = false;
     private AlwaysService alwaysService;
     private int miCurActId = 0;
     private String mstrActTxt = "";
-
     private String mstrPatNumber = "";
+    private String mstrActPictureCode = "";
 
     public String getActTxt() {
         return mstrActTxt;
     }
-
+    public String getPictureCode() { return mstrActPictureCode; }
+    public String getPatNumber() { return mstrPatNumber; }
     public int getCurActId() {
         return miCurActId;
     }
@@ -55,38 +55,56 @@ public class CameraActivity extends AppCompatActivity {
         return bRet;
     }
 
-    public String getPatNumber() {
-//        return alwaysService.getPatNumber();
-        return mstrPatNumber;
-    }
+//    public void setPictureFileName(String strFile) {
+//
+//        mstrActTxt = strFile;
+//
+//    }
 
-    public boolean setPictureFileName(String strFile) {
-
-        mstrActTxt = strFile;
-
-        return true;
-    }
-
-    public void MyFinish(boolean bAcceptedPicture) {
+    public void MyFinish() {
 
         try {
-
-            int iNextActId;
-            if (bAcceptedPicture) {
-                iNextActId = alwaysService.getNextActivityIdx();    //next id
-            } else {
-                iNextActId = alwaysService.getCurActivityIdx();     //same id
-            }
-
-//            if (miCurActId != 999) {                                //Not "no more activities"
-//                iNextActId = alwaysService.getNextActivityIdx();
-//            }
+            Log.d("CameraActivity:MyFinish", "finish()");
             finish();
+            int iNextActId;
+            iNextActId = alwaysService.setNextActivityIdx();    //next id
 
+            Log.d("CameraActivity:MyFinish", "alwaysService.GotoEvtAct(iNextActId)");
             alwaysService.GotoEvtAct(iNextActId);
 
         } catch(Exception e) {
-            Log.e("CameraActivity:Finish", e.toString());
+            Log.e("CameraActivity:MyFinish", e.toString());
+        }
+    }
+
+    public void GotoNextPicture(boolean bAcceptedPicture) {
+
+        try {
+            int iNextActId;
+//            int iNextActTypeID;
+            if (bAcceptedPicture) {
+                iNextActId = alwaysService.setNextActivityIdx();    //next id
+            } else {
+                iNextActId = alwaysService.getCurActivityIdx();     //same id
+            }
+            Log.d("CameraActivity:GotoNextPicture", "finish()");
+            finish();
+
+            Log.d("CameraActivity:GotoNextPicture", "alwaysService.GotoEvtAct(iNextActId)");
+            alwaysService.GotoEvtAct(iNextActId);
+//            iNextActTypeID = alwaysService.getActivityTypeFromIdx(iNextActId);
+//            if (iNextActTypeID == ACTIVITY_TYPE_PICTURE) {
+//                miCurActId = iNextActId;
+//                mstrActTxt = alwaysService.getActivityTextFromIdx(iNextActId);
+//                mstrActPictureCode = alwaysService.getActivityPictureCodeIdx(iNextActId);
+//                mstrPatNumber =  alwaysService.getPatNumber();
+//                updateFragmentControls();
+//
+//            } else {
+//                MyFinish();
+//            }
+        } catch(Exception e) {
+            Log.e("CameraActivity:MyFinish", e.toString());
         }
     }
 
@@ -94,50 +112,58 @@ public class CameraActivity extends AppCompatActivity {
 
         mstrActTxt = strFile;
 
+        Log.d("CameraActivity:AcceptPicture", "saveResponse()");
         saveResponse();
 
-        MyFinish(true);                                               //finish activity
-
+        Log.d("CameraActivity:AcceptPicture", "MyFinish(true)");
+        GotoNextPicture(true);                                               //Next activity
     }
 
     public void RejectPicture() {                                //reject picture
 
-//        showAlertDialogButtonClicked("Retake Picture", "Camera is ready to take a new picture.");
-        //causes error; call from fragment
-
-        MyFinish(false);                                               //finish activity
-
+        Log.d("CameraActivity:RejectPicture", "MyFinish(false)");
+        GotoNextPicture(false);                                               //Next activity
     }
 
-//    public void showAlertDialogButtonClicked(String strTitle, String strMsg) {
+//    public void updateFragmentControls() {
+//        //todo is fragment_container_view_tag what I want?
+//        Camera2BasicFragment frag = (Camera2BasicFragment)getSupportFragmentManager().
+//                findFragmentById(R.id.container);
 //
-//        // setup the alert builder
-//        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-//        builder.setTitle(strTitle);
-//        builder.setMessage(strMsg);
-//
-//        // add a button
-//        builder.setPositiveButton("OK", null);
-//
-//        // create and show the alert dialog
-//        AlertDialog dialog = builder.create();
-//        dialog.show();
+//        frag.setActvityData(mstrActTxt, mstrActPictureCode);
 //    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_camera);
-        if (null == savedInstanceState) {
+
+        Log.d("CameraActivity:", "OnCreate");
+//        if (null == savedInstanceState) {
+//            getSupportFragmentManager().beginTransaction()
+//                    .replace(R.id.container, Camera2BasicFragment.newInstance(), "fmCamera")
+//                    .commit();
+//        }
+        if (null != savedInstanceState) {
             getSupportFragmentManager().beginTransaction()
-//                    .replace(R.id.container, Camera2BasicFragment.newInstance())
-                    .replace(R.id.container, Camera2BasicFragment.newInstance(), "fmCamera")
+                    .remove(getSupportFragmentManager().findFragmentById(R.id.container))
                     .commit();
         }
+
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, Camera2BasicFragment.newInstance(), "fmCamera")
+                .commit();
+
         miCurActId = getIntent().getIntExtra("ActIdx", 0);
         mstrActTxt =  getIntent().getStringExtra("ActTxt");
         mstrPatNumber =  getIntent().getStringExtra("PatNum");
+        mstrActPictureCode =  getIntent().getStringExtra("ActPicCode");
 
+//        if (!(alwaysService == null)) {
+//            mstrActPictureCode = alwaysService.getActivityPictureCodeIdx(miCurActId);
+//            updateFragmentControls();
+//        }
     }
 
     @Override
@@ -147,35 +173,13 @@ public class CameraActivity extends AppCompatActivity {
         miCurActId = getIntent().getIntExtra("ActIdx", 0);
         mstrActTxt = getIntent().getStringExtra("ActTxt");
         mstrPatNumber =  getIntent().getStringExtra("PatNum");
+        mstrActPictureCode =  getIntent().getStringExtra("ActPicCode");
+
+//        if (!(alwaysService == null)) {
+//            mstrActPictureCode = alwaysService.getActivityPictureCodeIdx(miCurActId);
+//            updateFragmentControls();
+//        }
     }
-//    @Override
-//    public boolean dispatchKeyEvent(KeyEvent event) {
-//        int action = event.getAction();
-//        int keyCode = event.getKeyCode();
-//
-//        FragmentManager fm = getSupportFragmentManager();
-//        Camera2BasicFragment fragment = (Camera2BasicFragment)fm.findFragmentByTag("fmCamera");
-//
-//        return true;
-////        switch (keyCode) {
-////            case KeyEvent.KEYCODE_VOLUME_UP:
-////                if (action == KeyEvent.ACTION_DOWN) {
-////                    if(fragment != null) {
-//////                        fragment.takePicture();
-////                    }
-////                }
-////                return true;
-////            case KeyEvent.KEYCODE_VOLUME_DOWN:
-////                if (action == KeyEvent.ACTION_DOWN) {
-////                    if(fragment != null) {
-//////                        fragment.takePicture();
-////                    }
-////                }
-////                return true;
-////            default:
-////                return super.dispatchKeyEvent(event);
-////        }
-//    }
 
     @Override
     protected void onStart() {

@@ -1,6 +1,7 @@
 package com.ora.android.eyecup;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -62,17 +63,23 @@ public class AdminActivity extends AppCompatActivity {
     }
     private boolean SetPatient() { //returns "true" if successful
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());
-        boolean success;
+        boolean success = false;
         Patient p = new Patient();
         p.patNumber = tbxPatNumber.getText().toString();
         p.studyPatNumber = BuildSPN();
         p.password = tbxPassword.getText().toString();
         try {
             dba.open();
-        } catch (NullPointerException ex) {
+        } catch (NullPointerException e) {
+            Log.e("AdminActivity:SetPatient.dba.open:NPEx", e.toString());
             //todo handle
         }
-        success = dba.SetParticipantInfo(patient == null, patient.patNumber, patient.studyPatNumber, patient.password);
+        try {
+            success = dba.SetParticipantInfo(patient == null, patient.patNumber, patient.studyPatNumber, patient.password);
+        } catch (NullPointerException e){
+            Log.e("AdminActivity:SetPatient.SetParticipantInfo:NPEx", e.toString());
+            //todo handle
+        }
         dba.close();
         if (success)
             patient = p;
@@ -82,7 +89,8 @@ public class AdminActivity extends AppCompatActivity {
         DatabaseAccess dba = DatabaseAccess.getInstance(Global.GetAppContext());
         try {
             dba.open();
-        } catch (NullPointerException ex) {
+        } catch (NullPointerException e) {
+            Log.e("AdminActivity:GetPatient.dba.open:NPEx", e.toString());
             //todo handle
         }
         Object[][] patInfo = dba.GetParticipantInfo();
@@ -113,7 +121,11 @@ public class AdminActivity extends AppCompatActivity {
             Integer.parseInt(tbxSPNLocId.getText().toString());
             Integer.parseInt(tbxSPNSubjectId.getText().toString());
         }
-        catch (Exception ex) { return false; }
+        catch (Exception e) {
+            Log.e("AdminActivity:NewPatientIsValid:NPEx", e.toString());
+            //todo handle
+            return false;
+        }
         return patNumInt.toString().length() != 4 || spnYearId < 0 || spnYearId > 99 || pass.length() < 7; //all patient info constraints set here
     }
     private String BuildSPN() {
@@ -143,7 +155,11 @@ public class AdminActivity extends AppCompatActivity {
                     for (int i = 0; i < spnComponents.length; i++)
                         components[i] = Integer.parseInt(spnComponents[i]);
                 }
-                catch (Exception ex) { components = null; } //default for method misuse
+                catch (Exception e) {
+                    Log.e("AdminActivity:Patient:Ex", e.toString());
+                    //todo handle
+                    components = null;
+                } //default for method misuse
             }
             else
                 components = null; //default for method misuse

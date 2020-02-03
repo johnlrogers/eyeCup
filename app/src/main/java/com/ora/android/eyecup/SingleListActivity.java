@@ -69,7 +69,7 @@ public class SingleListActivity extends AppCompatActivity {
 
         @Override
         public void onClick(View v) {
-            Log.e("SingleList:OnClickListener", "SingleList btnContinueListener");
+            Log.d("SingleList:OnClickListener", "SingleList btnContinueListener");
 
 //            if (!validateResponse()){       //invalid response
 //                return;
@@ -79,11 +79,12 @@ public class SingleListActivity extends AppCompatActivity {
             try {
                 finish();
 
-                int iNextActId = alwaysService.getNextActivityIdx();
+                int iNextActId = alwaysService.setNextActivityIdx();
                 alwaysService.GotoEvtAct(iNextActId);
 
             } catch (Exception e) {
-                Log.e("SingleList:Finish", e.toString());
+                Log.e("SingleListActivity:onClick:Finish", e.toString());
+                //todo handle
             }
         }
     };

@@ -1,5 +1,7 @@
 package com.ora.android.eyecup;
 
+import android.util.Log;
+
 import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -14,7 +16,7 @@ public class Globals {
 
 //    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
     public static final boolean APP_DEMO_MODE = true;
-    public static final int APP_DEMO_MODE_MIN_OPEN = 1;
+    public static final int APP_DEMO_MODE_MIN_OPEN = 5;
     public static final int APP_DEMO_MODE_MIN_WARN = 5;
     public static final int APP_DEMO_MODE_MIN_EXPIRE = 10;
 
@@ -129,7 +131,8 @@ public class Globals {
                 return -1;
             }
         } catch (DateTimeParseException e) {
-            System.out.println("Invalid Input" + e.getMessage());
+            Log.e("Globals:compareTimeJava8:DTPEx", e.toString());
+            //todo handle
             return -9;
         }
 
@@ -170,8 +173,9 @@ public class Globals {
 
         try {
             bytes = str.getBytes("UTF-8");
-        } catch (UnsupportedEncodingException ex){
-
+        } catch (UnsupportedEncodingException e){
+            Log.e("Globals:ByteArrayFromString:UnsupportedEncodeEx", e.toString());
+            //todo handle
         }
         return bytes;
     }
@@ -183,8 +187,9 @@ public class Globals {
 
         try {
             str = new String(bytes, "UTF-8");
-        } catch (UnsupportedEncodingException ex){
-
+        } catch (UnsupportedEncodingException e){
+            Log.e("Globals:StringFromByteArray:UnsupportedEncodeEx", e.toString());
+            //todo handle
         }
         return str;
     }

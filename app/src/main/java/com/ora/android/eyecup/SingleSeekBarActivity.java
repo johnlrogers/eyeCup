@@ -111,11 +111,12 @@ public class SingleSeekBarActivity extends AppCompatActivity {
             try {
                 finish();
 
-                int iNextActId = alwaysService.getNextActivityIdx();
+                int iNextActId = alwaysService.setNextActivityIdx();
                 alwaysService.GotoEvtAct(iNextActId);
 
             } catch (Exception e) {
-                Log.e("SingleSeekBar:Finish", e.toString());
+                Log.e("SingleSeekBarActivity:onClick:Finish", e.toString());
+                //todo handle
             }
         }
     };

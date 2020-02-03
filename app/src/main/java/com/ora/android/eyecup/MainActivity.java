@@ -49,7 +49,8 @@ public class MainActivity extends AppCompatActivity {
                         finish();
 
                     } catch (Exception e) {
-                        Log.e("MainActivity:Finish", e.toString());
+                        Log.e("MainActivity:onCreate:Finish", e.toString());
+                        //todo handle
                     }
                 }
             }
