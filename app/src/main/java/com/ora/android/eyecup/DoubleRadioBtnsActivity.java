@@ -116,7 +116,7 @@ public class DoubleRadioBtnsActivity extends AppCompatActivity {
 
     private boolean saveResponse() {
         boolean bRet = false;
-        //todo save to database
+        //edit: add: alwaysService.CommitActivityInfo();
         return bRet;
     }
 
