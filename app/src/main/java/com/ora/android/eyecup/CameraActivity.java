@@ -27,6 +27,11 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.ora.android.eyecup.json.PatEventPicture;
+import com.ora.android.eyecup.json.PatEventResponse;
+
+import java.util.Calendar;
+
 //import android.support.v7.app.AppCompatActivity;
 
 public class CameraActivity extends AppCompatActivity {
@@ -51,7 +56,13 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean saveResponse() {
         boolean bRet = false;
-        //todo save to database
+        try {
+            alwaysService.CommitActivityInfo(alwaysService.currPatEvtId,
+                    new PatEventPicture(alwaysService.mlCurProtRevEvtActId, (long)miCurActId, mstrActPictureCode,
+                            Calendar.getInstance().getTime().toString()));
+            bRet = true;
+        }
+        catch (Exception ex) { }
         return bRet;
     }
 

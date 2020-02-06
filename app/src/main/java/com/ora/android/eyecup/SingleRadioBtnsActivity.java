@@ -18,8 +18,10 @@ import android.widget.TextView;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.ora.android.eyecup.json.ActivityResponse;
+import com.ora.android.eyecup.json.PatEventResponse;
 
 import java.lang.reflect.Type;
+import java.util.Calendar;
 import java.util.Collection;
 
 import androidx.appcompat.app.AlertDialog;
@@ -97,7 +99,14 @@ public class SingleRadioBtnsActivity extends AppCompatActivity {
 
     private boolean saveResponse() {
         boolean bRet = false;
-        //todo save to database
+        try {
+            alwaysService.CommitActivityInfo(alwaysService.currPatEvtId,
+                    new PatEventResponse(alwaysService.mlCurProtRevEvtActId, (long)miCurActId, mstrActTxt, null,
+                            null, null, null, new Long(miRspVal1), mstrRspTxt,
+                            Calendar.getInstance().getTime().toString()));
+            bRet = true;
+        }
+        catch (Exception ex) { }
         return bRet;
     }
 

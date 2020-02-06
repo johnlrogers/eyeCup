@@ -248,8 +248,7 @@ public class DatabaseAccess {
         try {
             db.execSQL("INSERT INTO tParticipantEventActivity (PatEvtId, ProtRevEvtActId, ResponseVal, ResponseTxt, PatEvtActDt) VALUES "
                     + "(" + patEvtId + ", " + response.getProtocolRevEventActivityId().toString() + ", " +
-                    response.getResponseVal().toString() + ", '" + response.getResponseTxt() + "', '" + response.getResponseDt() +
-                    "');");
+                    response.getResponseVal().toString() + ", '" + response.getResponseTxt() + "', '" + response.getResponseDt() + "');");
         }
         catch (Exception e) {
             Log.e("DA:InsertParticipantResponse:Ex", e.toString());
@@ -458,7 +457,7 @@ public class DatabaseAccess {
         }
         return value;
     }
-    public String CreateJSON(String outerObjectDbView, String innerObjectsName, String innerObjectsDbView, String innerImagesName, //create applicable views in the DB browser for this method to call, which if they exist, will format the JSON file based on the content of that view (and otherwise save nothing to the file) and save it to the returned internal storage path
+    public String CreateJSON(String outerObjectDbView, String innerObjectsName, String innerObjectsDbView, String innerImagesName, //create applicable views in the DB browser for this method to call, which if they exist, will dateFormat the JSON file based on the content of that view (and otherwise save nothing to the file) and save it to the returned internal storage path
             String innerImagesDbView, AppCompatActivity caller) {
         String fileName = ""; //default for method misuse
         if (outerObjectDbView == null || innerObjectsName == null || innerObjectsDbView == null || innerImagesName == null

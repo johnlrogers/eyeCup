@@ -15,6 +15,10 @@ import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.ora.android.eyecup.json.PatEventResponse;
+
+import java.util.Calendar;
+
 public class DoubleSeekBarActivity extends AppCompatActivity {
 
     private Global global = Global.Context(this);
@@ -81,7 +85,14 @@ public class DoubleSeekBarActivity extends AppCompatActivity {
 
     private boolean saveResponse() {
         boolean bRet = false;
-        //todo save to database
+        try {
+            alwaysService.CommitActivityInfo(alwaysService.currPatEvtId,
+                    new PatEventResponse(alwaysService.mlCurProtRevEvtActId, (long)miCurActId, mstrActTxt, null,
+                            null, null, null, new Long(miRspVal1), mstrRspTxt1,
+                            Calendar.getInstance().getTime().toString()));
+            bRet = true;
+        }
+        catch (Exception ex) { }
         return bRet;
     }
 

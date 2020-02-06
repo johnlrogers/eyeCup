@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -118,12 +119,15 @@ public class AlwaysService extends Service {
 
     private long mlCurProtRevId = 0;                                          //current Protocol Rev Id
     private long mlCurProtRevEvtId = 0;                                       //Current Protocol Rev Event Id
-    private long mlCurProtRevEvtActId = 0;                                    //Current Protocol Rev Event Activity Id
+    public long mlCurProtRevEvtActId = 0;                                    //Current Protocol Rev Event Activity Id
 
     private ParticipantEvent mPatEvt = new ParticipantEvent();
     private PatEventResponse mPatEvtActRsp = new PatEventResponse();
-    private String mstrPatNumber = "20-003-0001-234-0004";                  //todo use Participant object, get form dB
+    private String mstrPatNumber = "20-003-0001-234-0004";                  //todo use Participant object, get from dB
     private int miPatId = 4;
+
+    public DateFormat dateFormat = new SimpleDateFormat("EEE, MMM d, yyyy hh:mm:ss aaa");
+    public long currPatEvtId = -1;
 
 
     /**************** start methods ***********************/
@@ -434,7 +438,7 @@ public class AlwaysService extends Service {
             mDtNextEvtExpire = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
         } else {
             DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
-            try {
+            try { //edit: use protrev and protrevevent, for "what is the next time of day tied to an event"?
                 dba.open();                                                                 //open db
             } catch (NullPointerException e) {
                 Log.e("AlwaysService:getNextEvtDtStr:NPEx", e.toString());
@@ -533,7 +537,7 @@ public class AlwaysService extends Service {
         return mState;
     }
 
-    private int StartProtocol() {
+    private int StartProtocol() { //edit: check in db to see if there's an open event
 
         mlCurProtRevId = mArrProtRev.get(setNextProtRevIdx()).getProtocolRevId();                                   //get Current Protocol Rev Id
         mlCurProtRevEvtId = mArrProtRevEvt.get(setNextProtRevEvtIdx()).getProtocolRevEventId();                     //get Current Protocol Rev Event Id
@@ -901,7 +905,7 @@ public class AlwaysService extends Service {
     }
 
     public int StartEvent() {
-
+        currPatEvtId = StartParticipantEvent(DatabaseAccess.getInstance(getApplicationContext()), dateFormat);
         return StartProtocol();
     }
 
@@ -1244,7 +1248,7 @@ public class AlwaysService extends Service {
                 event.setDeviceAppId(deviceInfo.get(1)[i].toString());
         return event;
     }
-    public long StartParticipantEvent(DatabaseAccess dba, long protocolRevId, long protocolRevEventId, long eventId, DateFormat dFormat) { //edit: call each time a participant event begins; returns its corresponding "PatEvtId"; have a universal "DateFormat" for formatting SQLite db dates, to set here and everywhere else applicable
+    public long StartParticipantEvent(DatabaseAccess dba, DateFormat dFormat) { //edit: call each time a participant event begins; returns its corresponding "PatEvtId"; have a universal "DateFormat" for formatting SQLite db dates, to set here and everywhere else applicable
         if (dba == null || dFormat == null)
             return -1; //default for method misuse
         ParticipantEvent participantEvent = GetParticipantInfoEntity(dba);
@@ -1257,9 +1261,9 @@ public class AlwaysService extends Service {
             }
         }
         participantEvent.setPatEventId(maxId + 1);
-        participantEvent.setProtocolRevId(protocolRevId);
-        participantEvent.setProtocolRevEventId(protocolRevEventId);
-        participantEvent.setEventId(eventId);
+        participantEvent.setProtocolRevId(mlCurProtRevId);
+        participantEvent.setProtocolRevEventId(mlCurProtRevEvtId);
+        //edit: figure out: participantEvent.setEventId();
         participantEvent.setPatEventDtStart(dFormat.format(Calendar.getInstance().getTime()));
         participantEvent.setPatEventResponseCnt(0L);
         participantEvent.setPatEventPictureCnt(0L);
@@ -1297,8 +1301,7 @@ public class AlwaysService extends Service {
             if (data.get(0)[i].equals("PatEvtId")) {
                 for (int j = 1; j < data.size(); j++) {
                     if ((long)data.get(j)[i] == patEvtId) {
-                        //todo Warning Condition 'k.data.size()' is always true
-                        for (int k = 1; k < data.size(); j++) {
+                        for (int k = 1; k < data.size(); k++) {
                             if (!isPicture)
                                 if (data.get(0)[k].equals("PatEvtResponseCnt")) {
                                     oldEvtCnt = (int)data.get(j)[i];
@@ -1326,6 +1329,7 @@ public class AlwaysService extends Service {
         String path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
                 "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", caller);
         dba.close();
+        currPatEvtId = -1;
         return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
     }
 }

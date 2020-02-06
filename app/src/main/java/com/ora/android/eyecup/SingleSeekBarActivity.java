@@ -15,6 +15,10 @@ import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.ora.android.eyecup.json.PatEventResponse;
+
+import java.util.Calendar;
+
 public class SingleSeekBarActivity extends AppCompatActivity {
 
     private Global global = Global.Context(this);
@@ -57,7 +61,7 @@ public class SingleSeekBarActivity extends AppCompatActivity {
 
         global.InitInputView(global.<SeekBar>GetView(R.id.skbSlider), new String[] { }, x -> {  //slider move
 
-            //todo Warning:(60, 59) Number formatting does not take into account locale settings. Consider using `String.format` instead.
+            //todo Warning:(60, 59) Number formatting does not take into account locale settings. Consider using `String.dateFormat` instead.
             global.<TextView>GetView(R.id.lblVal).setText(Integer.toString(x));             //update view
             miRspVal1 = x;                                                                  //set response value
             return null;
@@ -66,7 +70,14 @@ public class SingleSeekBarActivity extends AppCompatActivity {
 
     private boolean saveResponse() {
         boolean bRet = false;
-        //todo save to database
+        try {
+            alwaysService.CommitActivityInfo(alwaysService.currPatEvtId,
+                new PatEventResponse(alwaysService.mlCurProtRevEvtActId, (long)miCurActId, mstrActTxt, null,
+                        null, null, null, new Long(miRspVal1), mstrRspTxt1,
+                        Calendar.getInstance().getTime().toString()));
+            bRet = true;
+        }
+        catch (Exception ex) { }
         return bRet;
     }
 

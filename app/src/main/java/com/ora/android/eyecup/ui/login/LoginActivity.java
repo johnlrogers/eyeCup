@@ -20,6 +20,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.ora.android.eyecup.AlwaysService;
+import com.ora.android.eyecup.DatabaseAccess;
 import com.ora.android.eyecup.R;
 
 import androidx.annotation.Nullable;
