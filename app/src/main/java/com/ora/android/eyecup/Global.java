@@ -17,7 +17,7 @@ public class Global { //use for all common activity functionality //edit: combin
     private static final Global global = new Global();
     private AppCompatActivity[] navChain = null;
     private Global() { }
-    public static Global Context(AppCompatActivity activity) { //call once in every activity to initialize a class variable
+    public static Global Context(AppCompatActivity activity) { //call once in every activity to initialize a class variable //edit: make sure all activities call this
         if (activity == null)
             return null; //default for method misuse
         boolean activityExists = false;
@@ -103,7 +103,10 @@ public class Global { //use for all common activity functionality //edit: combin
         //todo Warning findViewById may produce NullPointerException
         return (T)GetCurrActivity().findViewById(id);
     }
-    private AppCompatActivity GetCurrActivity() {
+    public static Global GetGlobal() {
+        return global;
+    }
+    public AppCompatActivity GetCurrActivity() {
         if (navChain != null && navChain.length != 0)
             return navChain[navChain.length - 1];
         return null; //default for method misuse

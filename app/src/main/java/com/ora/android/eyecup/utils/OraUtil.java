@@ -34,7 +34,7 @@ public class OraUtil {
 //                break;
 //        }
 //
-//        str = fmtDt.format(dt);
+//        str = fmtDt.dateFormat(dt);
 //
 //        return str;
 //    }

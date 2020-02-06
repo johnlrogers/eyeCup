@@ -177,7 +177,7 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    private void TryLogin (String strUser, String strPW) {
+    private void TryLogin(String strUser, String strPW) {
 
         int iLoginState = alwaysService.TryLogin(strUser, strPW);
         if (iLoginState == LOGIN_PARTICPANT_ERR_NO_ERR) {
@@ -185,7 +185,6 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         loginViewModel.loginMessage(iLoginState);
-
     }
 
     private void updateUiWithUser(LoggedInUserView model) {

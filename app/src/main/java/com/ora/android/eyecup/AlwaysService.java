@@ -123,8 +123,8 @@ public class AlwaysService extends Service {
 
     private ParticipantEvent mPatEvt = new ParticipantEvent();
     private PatEventResponse mPatEvtActRsp = new PatEventResponse();
-    private String mstrPatNumber = "20-003-0001-234-0004";                  //todo use Participant object, get from dB
-    private int miPatId = 4;
+    private String mstrPatNumber = DatabaseAccess.getInstance(getApplicationContext()).GetParticipantInfo()[1][2].toString(); //edit: change second index to be dynamic
+    private int miPatId = (int)DatabaseAccess.getInstance(getApplicationContext()).GetParticipantInfo()[1][0]; //edit: change second index to be dynamic //edit: utilize
 
     public DateFormat dateFormat = new SimpleDateFormat("EEE, MMM d, yyyy hh:mm:ss aaa");
     public long currPatEvtId = -1;
@@ -329,6 +329,12 @@ public class AlwaysService extends Service {
                         case ALWAYS_SVC_EVENT_ABORT:
                             break;
                         case ALWAYS_SVC_EVENT_COMPLETE:
+                            AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();
+                            if (activity != null)
+                                EndParticipantEvent(currPatEvtId, activity, DatabaseAccess.getInstance(getApplicationContext()),
+                                        dateFormat);
+                            else
+                                ; //edit: handle
                             strNextEventTime = setNextEvtDtStr();
                             intent = new Intent(this, IdleActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -355,6 +361,8 @@ public class AlwaysService extends Service {
 
                     break;
                 case ALWAYS_SVC_STATE_POLL:
+                    if (currPatEvtId != -1) //edit: is this the right place to execute this?
+                        TryUploadJSON();
                 default:
                     strNextEventTime = getNextEvtDtStr();
                     intent = new Intent(this, IdleActivity.class);
@@ -1263,7 +1271,6 @@ public class AlwaysService extends Service {
         participantEvent.setPatEventId(maxId + 1);
         participantEvent.setProtocolRevId(mlCurProtRevId);
         participantEvent.setProtocolRevEventId(mlCurProtRevEvtId);
-        //edit: figure out: participantEvent.setEventId();
         participantEvent.setPatEventDtStart(dFormat.format(Calendar.getInstance().getTime()));
         participantEvent.setPatEventResponseCnt(0L);
         participantEvent.setPatEventPictureCnt(0L);
@@ -1329,8 +1336,14 @@ public class AlwaysService extends Service {
         String path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
                 "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", caller);
         dba.close();
-        currPatEvtId = -1;
-        return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
+        return path;
+    }
+    private boolean TryUploadJSON() { //edit: call this periodically ("success" is "true" if it works or if the value was already marked true (so have the method check thru "Data Access")), then call method in dba to mark it uploaded when done
+        boolean success = false;
+        //edit: implement this method
+        if (success)
+            currPatEvtId = -1;
+        return success;
     }
 }
 
