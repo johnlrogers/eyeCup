@@ -1297,8 +1297,8 @@ public class AlwaysService extends Service {
             if (data.get(0)[i].equals("PatEvtId")) {
                 for (int j = 1; j < data.size(); j++) {
                     if ((long)data.get(j)[i] == patEvtId) {
-                        //todo Warning Condition 'k.data.size()' is always true
-                        for (int k = 1; k < data.size(); j++) {
+
+                        for (int k = 1; k < data.size(); k++) {
                             if (!isPicture)
                                 if (data.get(0)[k].equals("PatEvtResponseCnt")) {
                                     oldEvtCnt = (int)data.get(j)[i];
