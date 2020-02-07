@@ -4,6 +4,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.graphics.Bitmap;
 import android.util.Log;
 
 import com.google.gson.JsonArray;
@@ -23,17 +24,26 @@ import com.ora.android.eyecup.oradb.TParticipantEventActivity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -142,6 +152,18 @@ public class DatabaseAccess {
         }
         return success;
     }
+    public String GetStudyPatNumber() {
+        String studyPatNumber = "";
+        try { c = db.rawQuery("SELECT StudyPatNumber FROM tParticipant LIMIT 1;", new String[] { }); }
+        catch (Exception e) {
+            Log.e("DA:GetParticipantInfo:Ex", e.toString());
+            //todo handle
+        }
+        c.moveToFirst();
+        studyPatNumber = c.getString(0);
+        c.close();
+        return studyPatNumber;
+    }
     public Object[][] GetParticipantInfo() { //returns null if no participant exists
         try { c = db.rawQuery("SELECT * FROM tParticipant LIMIT 1;", new String[] { }); }
         catch (Exception e) {
@@ -149,8 +171,7 @@ public class DatabaseAccess {
             //todo handle
         }
         Object[][] selectedVals = new Object[2][c.getCount()];
-        //todo Warning:(133, 13) Condition 'selectedVals.length == 0' is always 'false'
-        if (selectedVals.length == 0)
+        if (selectedVals[0].length == 0)
             return null; //no participant exists
         c.moveToFirst();
         for (int i = 0; i < c.getColumnCount(); i++) {
@@ -313,6 +334,67 @@ public class DatabaseAccess {
             //todo handle
         }
     }
+    public String TrySendJSONToServer(String filePath) throws Exception {
+
+        String attachmentName = filePath.substring(filePath.lastIndexOf("/") + 1);
+        String attachmentFileName = attachmentName + ".json";
+        String crlf = "\r\n";
+        String twoHyphens = "--";
+        String boundary =  "*****";
+
+        HttpURLConnection httpUrlConnection = null;
+        URL url = new URL("http://mattpestillo.com"); //edit: change to destination url
+        httpUrlConnection = (HttpURLConnection) url.openConnection();
+        httpUrlConnection.setUseCaches(false);
+        httpUrlConnection.setDoOutput(true);
+
+        httpUrlConnection.setRequestMethod("POST");
+        httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
+        httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
+        httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+
+        DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
+
+        List<Byte> bytesList = new ArrayList<Byte>();
+        try (InputStream in = new FileInputStream(filePath)) {
+            byte[] buf = new byte[1024];
+            while (in.read(buf) > 0) {
+                for (int i = 0; i < buf.length; i++)
+                    bytesList.add(buf[i]);
+            }
+        }
+        byte[] bytes = new byte[bytesList.size()];
+        for (int i = 0; i < bytes.length; i++)
+            bytes[i] = bytesList.get(i);
+
+        request.writeBytes(twoHyphens + boundary + crlf);
+        request.writeBytes("Content-Disposition: form-data; name=\"" + attachmentName + "\";filename=\""
+                + attachmentFileName + "\"" + crlf);
+        request.writeBytes(crlf);
+        request.write(bytes);
+
+        request.writeBytes(crlf);
+        request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
+
+        request.flush();
+        request.close();
+
+        InputStream responseStream = new BufferedInputStream(httpUrlConnection.getInputStream());
+        BufferedReader responseStreamReader = new BufferedReader(new InputStreamReader(responseStream));
+
+        String line = "";
+        StringBuilder stringBuilder = new StringBuilder();
+
+        while ((line = responseStreamReader.readLine()) != null) {
+            stringBuilder.append(line).append("\n");
+        }
+        responseStreamReader.close();
+
+        responseStream.close();
+        httpUrlConnection.disconnect();
+
+        return stringBuilder.toString();
+    }
     public void MarkParticipantEventUploaded(ParticipantEvent newEvent) { //edit: call when uploaded
         if (newEvent == null)
             return; //returned for method misuse
@@ -323,7 +405,6 @@ public class DatabaseAccess {
             //todo handle
         }
     }
-
 
     private void InsertProtocolRevision(ProtocolRevision entity) {
         if (entity == null)
@@ -548,7 +629,8 @@ public class DatabaseAccess {
         catch (Exception e) {
             //todo handle
         }
-        fileName = FormatFileName("files/Patient_Identifier/Events/" + relFileName, ".json",
+
+        fileName = FormatFileName("files/" + GetStudyPatNumber() + "_Patient_Identifier/Events/" + relFileName, ".json",
                 new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
         try { MoveTo(FormatFileName("files/" + relFileName, ".json", null), fileName, false); }
         catch (Exception e) {

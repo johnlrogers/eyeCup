@@ -1504,24 +1504,15 @@ public class AlwaysService extends Service {
         }
         return oldEvtCnt;
     }
-//    public String EndParticipantEvent(long patEvtId, AppCompatActivity caller, DatabaseAccess dba, DateFormat dFormat) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
-//        if (caller == null || dba == null || dFormat == null)
-//            return null; //default for method misuse
-//        dba.open();
-//        dba.MarkParticipantEventEnded(patEvtId, dFormat.format(Calendar.getInstance().getTime()));
-//        String path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
-//                "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", caller);
-//        dba.close();
-//        return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
-//    }
+
     public String EndParticipantEvent(long patEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
 
-//        AppCompatActivity activity = getApplicationContext().
         Globals glob = new Globals();
         String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());       //get datetime now
         String path = "";
 
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
+        String jsonSendResponse = "";
         try {
             dba.open();
             dba.MarkParticipantEventEnded(patEvtId, strDt);
@@ -1529,15 +1520,20 @@ public class AlwaysService extends Service {
 
             AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();
             path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
-                    "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", activity);
+                    "vInnerPatEvt", "PatEventImages", "vInnerPatEvtPictures",
+                    activity);
 
+            dba.open();
+            jsonSendResponse = dba.TrySendJSONToServer(path);
+            dba.close();
         } catch (NullPointerException e ) {
             Log.e("AlwaysService:StartParticipantEvent:NPEx", e.toString());
             //todo handle, try again?
+        } catch (Exception e) {
+            //todo handle (and also do the same if "jsonSendResponse" implies that the file wasn't sent (figure out)), try again... start process to try running the "TrySendJSONToServer" method that failed, periodically until it doesn't throw an exception
         }
 
-
-        return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
+        return path;
     }
 }
 
