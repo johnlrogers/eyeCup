@@ -72,8 +72,10 @@ public class CameraActivity extends AppCompatActivity {
             Log.d("CameraActivity:MyFinish", "alwaysService.GotoEvtAct(iNextActId)");
             alwaysService.GotoEvtAct(iNextActId);
 
+        } catch (IndexOutOfBoundsException e) {
+            Log.e("CameraActivity:MyFinish:IdxOoBEx", e.toString());
         } catch(Exception e) {
-            Log.e("CameraActivity:MyFinish", e.toString());
+            Log.e("CameraActivity:MyFinish:Ex", e.toString());
         }
     }
 
@@ -92,17 +94,6 @@ public class CameraActivity extends AppCompatActivity {
 
             Log.d("CameraActivity:GotoNextPicture", "alwaysService.GotoEvtAct(iNextActId)");
             alwaysService.GotoEvtAct(iNextActId);
-//            iNextActTypeID = alwaysService.getActivityTypeFromIdx(iNextActId);
-//            if (iNextActTypeID == ACTIVITY_TYPE_PICTURE) {
-//                miCurActId = iNextActId;
-//                mstrActTxt = alwaysService.getActivityTextFromIdx(iNextActId);
-//                mstrActPictureCode = alwaysService.getActivityPictureCodeIdx(iNextActId);
-//                mstrPatNumber =  alwaysService.getPatNumber();
-//                updateFragmentControls();
-//
-//            } else {
-//                MyFinish();
-//            }
         } catch(Exception e) {
             Log.e("CameraActivity:MyFinish", e.toString());
         }

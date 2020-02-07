@@ -69,18 +69,13 @@ public class AdminActivity extends AppCompatActivity {
         p.password = tbxPassword.getText().toString();
         try {
             dba.open();
-        } catch (NullPointerException e) {
-            Log.e("AdminActivity:SetPatient.dba.open:NPEx", e.toString());
-            //todo handle
-        }
-        try {
             success = dba.SetParticipantInfo(patient == null, patient.GetSPNComponents()[4].toString(),
                     patient.studyPatNumbers, patient.password);
+            dba.close();
         } catch (NullPointerException e){
             Log.e("AdminActivity:SetPatient.SetParticipantInfo:NPEx", e.toString());
             //todo handle
         }
-        dba.close();
         if (success)
             patient = p;
         return success;

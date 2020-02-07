@@ -72,12 +72,14 @@ public class Globals {
     public static final String APP_DIR_PROTOCOL = "Protocol";
     public static final String APP_DIR_PROTOCOL_ARCHIVE = "Protocol/Archive";
     public static final String APP_DIR_PARTICIPANTS = "Participants";
+    public static final String APP_DIR_PARTICIPANT_PICS = "/Pics";
+    public static final String APP_DIR_PARTICIPANT_EVENTS = "/Events";
     public static final String APP_DIR_DATA = "databases";
     public static final String APP_DIR_DATA_ARCHIVE = "databases/Archive";
     public static final String APP_DIR_DATA_FRESH = "databases/Fresh";
 //    public static final String APP_DATA_DBNAME = "ORADb.db";
-    public static final String APP_DATA_DBNAME = "ORADb_V4.db";
-    public static final String APP_ASSET_DBNAME = "databases/ORADb_V4.db";
+    public static final String APP_DATA_DBNAME = "ORADb_V5.db";
+    public static final String APP_ASSET_DBNAME = "databases/ORADb_V5.db";
 
     public static final int ACTIVITY_TYPE_INSTRUCTION = 1;
     public static final int ACTIVITY_TYPE_QUESTION = 2;

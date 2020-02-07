@@ -15,7 +15,8 @@ public class DatabaseOpenHelper extends SQLiteAssetHelper {
 //    private static final int DATABASE_VERSION = 1;                //emulator
 //    private static final int DATABASE_VERSION = 2;                  //new device install
 //    private static final int DATABASE_VERSION = 3;                  //new device install
-    private static final int DATABASE_VERSION = 4;                  //OraDb_V4 20200206
+//    private static final int DATABASE_VERSION = 4;                  //OraDb_V4 20200206
+    private static final int DATABASE_VERSION = 5;                  //OraDb_V5 20200207
 
 //jlr add
     private static String TAG = "DataBaseHelper"; // Tag just for the LogCat window

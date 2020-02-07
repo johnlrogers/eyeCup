@@ -85,6 +85,8 @@ import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 
 import static android.widget.ImageView.ScaleType.CENTER_CROP;
+import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
+import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_PICS;
 import static com.ora.android.eyecup.Globals.DT_FMT_FULL_FILENAME;
 import static java.lang.Thread.sleep;
 
@@ -328,7 +330,7 @@ public class Camera2BasicFragment extends Fragment
                 Log.e("C2BF:OnImageAvailable.activity.getPatNumber:NPEx", e.toString());
                 //todo handle
             }
-
+            String strDir = APP_DIR_PARTICIPANTS + "/" + activity.getPatNumber() + APP_DIR_PARTICIPANT_PICS;
             String strFile = activity.getPatNumber();
             strFile = strFile + "_" + mstrPicCode;
             strFile = strFile + "_" + glob.GetDateStr(DT_FMT_FULL_FILENAME,dt);
@@ -337,7 +339,9 @@ public class Camera2BasicFragment extends Fragment
 
             //todo Warning:(330, 52) Method invocation 'getExternalFilesDir' may produce 'NullPointerException'
             try {
-                File fNewFile = new File(activity.getExternalFilesDir(null), strFile);
+//                File fNewFile = new File(activity.getExternalFilesDir(null), strFile);
+//                File fNewFile = new File(activity.getExternalFilesDir(activity.getPatNumber()), strFile);
+                File fNewFile = new File(activity.getExternalFilesDir(strDir), strFile);
                 mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), fNewFile));
                 mFile = fNewFile;
             } catch (NullPointerException e) {

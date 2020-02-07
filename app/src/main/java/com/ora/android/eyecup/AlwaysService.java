@@ -29,8 +29,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -126,27 +124,24 @@ public class AlwaysService extends Service {
     ArrayList<ActivityResponse> mArrProtRevEvtActRsp = new ArrayList<>();   //All Protocol Rev Event Activity Responses
 
     private int miCurProtRevIdx = 0;                                        //Current mArrProtRev Index
-    private int miCurProtRevEvtIdx = 0;                                     //Current mArrProtRevEvt Index
+    private int miCurProtRevEvtIdx = -1;                                    //Current mArrProtRevEvt Index
     private int miCurActIdx = 0;                                            //Current mArrProtRevEvtAct Index
 
     private long mlCurProtRevId = 0;                                        //current Protocol Rev Id
     private long mlCurProtRevEvtId = 0;                                     //Current Protocol Rev Event Id
     private long mlCurProtRevEvtActId = 0;                                  //Current Protocol Rev Event Activity Id
 
-    private TDevice mCurDevice = new TDevice();
-    private TParticipant mCurPat = new TParticipant();
-    private TParticipantEvent mCurPatEvt = new TParticipantEvent();
-    private TParticipantEventActivity mCurPatEvtAct = new TParticipantEventActivity();
+    public long mlCurPatEvtId = -1;                                         //Current ParticipantEvent Id
+    private TDevice mCurDevice = new TDevice();                                         //table class: Device
+    private TParticipant mCurPat = new TParticipant();                                  //table class: Participant
+    private TParticipantEvent mCurPatEvt = new TParticipantEvent();                     //table class: ParticipantEvent
+    private TParticipantEventActivity mCurPatEvtAct = new TParticipantEventActivity();  //table class: ParticipantEventActivity
 
-    private ParticipantEvent mJSONPatEvt = new ParticipantEvent();
-    private PatEventResponse mJSONPatEvtRsp = new PatEventResponse();
-    private PatEventPicture mJSONPatEvtPic = new PatEventPicture();
+    private ParticipantEvent mJSONPatEvt = new ParticipantEvent();          //JSON output class: ParticipantEvent
+    private PatEventResponse mJSONPatEvtRsp = new PatEventResponse();       //JSON output class: PatEventResponse
+    private PatEventPicture mJSONPatEvtPic = new PatEventPicture();         //JSON output class: PatEventPicture
 
-//    private String mstrPatNumber;
-//    private int miPatId;
-
-    public DateFormat dateFormat = new SimpleDateFormat("EEE, MMM d, yyyy hh:mm:ss aaa");
-    public long mlCurPatEvtId = -1;
+    private String mstrPatFilesRoot;                                        //Root directory for Participant Files
 
     /**************** start methods ***********************/
     public AlwaysService() {
@@ -218,8 +213,6 @@ public class AlwaysService extends Service {
 
         Intent broadcastIntent = new Intent(Globals.INTENT_SVC_RESTART);    //set restart intent
         sendBroadcast(broadcastIntent);                                     //broadcast intent
-
-        // stopTimerTask();     //skip: on some phones this may stop the timer AFTER it was restarted
     }
 
     /** static to avoid multiple timers to be created when the service is called several times */
@@ -390,7 +383,7 @@ public class AlwaysService extends Service {
     //get the current protocol rev index
     public int setNextProtRevIdx() {
         if (APP_DEMO_MODE) {
-            miCurProtRevIdx = 0;
+            miCurProtRevIdx = 0;        //only one protocol
         } else {
             miCurProtRevIdx = 0;            //todo get protocol revision (should only ever be one anyway)
         }
@@ -402,26 +395,34 @@ public class AlwaysService extends Service {
     public int setNextProtRevEvtIdx() {
 
         if (APP_DEMO_MODE) {
-            miCurProtRevEvtIdx = 0;
+            if (miCurProtRevEvtIdx == -1) {     //first time through
+                miCurProtRevEvtIdx = 0;
+            } else {
+                if (miCurProtRevEvtIdx == 1) {  //alternate events in demo
+                    miCurProtRevEvtIdx = 0;
+                } else {
+                    miCurProtRevEvtIdx = 1;
+                }
+            }
         } else {
             DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
             try {
                 dba.open();                                                                 //open db
+                String strQry = "SELECT * FROM tProtRevEvent";
+                strQry = strQry + " WHERE ProtRevId = " + mlCurProtRevId;
+                strQry = strQry + " ORDER BY EvtTimeOpen";                                  //select events //todo include Freq/Duration in sort
+
+                Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+                while (crs.moveToNext()) {                                                  //Iterate cursor
+                    //todo use times and state to determine next event
+                    miCurProtRevEvtIdx = 0;     //todo current or next event
+                }
+                crs.close();
+                dba.close();
             } catch (NullPointerException e) {
                 Log.e("AlwaysService:setNextProtRevEvtIdx:NPEx", e.toString());
                 //todo handle
             }
-            String strQry = "SELECT * FROM tProtRevEvent";
-            strQry = strQry + " WHERE ProtRevId = " + mlCurProtRevId;
-            strQry = strQry + " ORDER BY EvtTimeOpen";                                  //select events //todo include Freq/Duration in sort
-
-            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
-            while (crs.moveToNext()) {                                                  //Iterate cursor
-                //todo use times and state to determine next event
-                miCurProtRevEvtIdx = 0;     //todo current or next event
-            }
-            crs.close();
-            dba.close();
         }
         return miCurProtRevEvtIdx;
     }
@@ -457,16 +458,15 @@ public class AlwaysService extends Service {
             DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
             try {
                 dba.open();                                                                 //open db
+                mDtNextEvtStart = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_OPEN);        //todo get actual next
+                mDtNextEvtWarn = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_WARN);
+                mDtNextEvtExpire = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
+
+                dba.close();
             } catch (NullPointerException e) {
                 Log.e("AlwaysService:getNextEvtDtStr:NPEx", e.toString());
                 //todo handle
             }
-
-            mDtNextEvtStart = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_OPEN);        //todo get actual next
-            mDtNextEvtWarn = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_WARN);
-            mDtNextEvtExpire = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
-
-            dba.close();
         }
 
 //        return mDtNextEvtStart.toString();
@@ -615,7 +615,9 @@ public class AlwaysService extends Service {
                 if (strFQPatNumber.length() == 0) {
                     //todo format the fully qualified number if empty
                 }
-                mCurPat.setStudypatnumber(strFQPatNumber); //fully qualify patient number
+                mCurPat.setStudypatnumber(strFQPatNumber);                              //fully qualify patient number
+
+                mstrPatFilesRoot = strFQPatNumber;
             }
             crs.close();
             dba.close();
@@ -657,135 +659,131 @@ public class AlwaysService extends Service {
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
         try {
             dba.open();                                                                 //open db
-        } catch (NullPointerException e) {
-            Log.e("AlwaysService:GetProtocolFromDB:NPEx", e.toString());
-            //todo handle
-        }
-                                                                                    //select view
-        String strQry = "SELECT * FROM vProtRevEvtActivities WHERE ActId is not NULL and ActTypeId IS NOT NULL ORDER BY ProtRevId, ProtRevEvtId, ActSeq, ProtRevEvtActId, ActRspSeq";
-
-        Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
-
-        while (crs.moveToNext()) {                                                  //Iterate Event Activities and Responses
-            {
-                lCurRev = crs.getLong(crs.getColumnIndex("ProtRevId"));     //get Protocol Rev
-                if (lCurRev != lPrevRev) {                                              //changed?
-                    if (lPrevRev != 0) {                                                    //Not first?
-                        mArrProtRev.add(newProtRev);                                              //Add to the array list
-                    }
-                    newProtRev = new ProtocolRevision();
-                    newProtRev.setProtocolRevId(lCurRev);                                     //set current Protocol Rev
-                                                                                            //set current protocol Rev values
-                    newProtRev.setProtocolName(crs.getString(crs.getColumnIndex("ProtName")));          //todo add to vProtRevEvtActivities
-                    newProtRev.setProtocolRevName(crs.getString(crs.getColumnIndex("ProtRevName")));    //todo add to vProtRevEvtActivities
-                    newProtRev.setProtocolRevDt(crs.getString(crs.getColumnIndex("ProtRevDt")));        //todo add to vProtRevEvtActivities
-                    newProtRev.setProtocolRevEventCnt(crs.getLong(crs.getColumnIndex("EvtCnt")));
-
-                    lPrevRev = lCurRev;                                                     //reset previous
-                }
-
-                lCurEvt = crs.getLong(crs.getColumnIndex("ProtRevEvtId"));  //get Protocol Rev Event
-                if (lCurEvt != lPrevEvt) {                                              //changed?
-                    if (lPrevEvt != 0) {                                                    //Not first?
-                        mArrProtRevEvt.add(newProtRevEvt);                                        //Add to the array list
-
-                    }
-                    newProtRevEvt = new ProtocolRevEvent();
-                    newProtRevEvt.setProtocolRevEventId(lCurEvt);                             //set current Event
-                                                                                            //set current Event Values
-                    newProtRevEvt.setProtocolRevId(lCurRev);
-                    newProtRevEvt.setProtocolRevEventName(crs.getString(crs.getColumnIndex("ProtRevEvtName")));
-                    newProtRevEvt.setFrequencyCode(crs.getString(crs.getColumnIndex("EvtFreq")));
-                    newProtRevEvt.setEventDayStart(crs.getLong(crs.getColumnIndex("EvtStart")));
-//                    newProtRevEvt.sete(crs.getLong(crs.getColumnIndex("EvtDaysDuration")));
-                    newProtRevEvt.setEventTimeOpen(crs.getString(crs.getColumnIndex("EvtTimeOpen")));
-                    newProtRevEvt.setEventTimeWarn(crs.getString(crs.getColumnIndex("EvtTimeWarn")));
-                    newProtRevEvt.setEventTimeClose(crs.getString(crs.getColumnIndex("EvtTimeClose")));
- //                   newProtRevEvt.setEventActivityCnt(crs.getLong(crs.getColumnIndex("eventActivityCnt")));
-
-                    lPrevEvt = lCurEvt;
-                }
-
-                lCurAct = crs.getLong(crs.getColumnIndex("ProtRevEvtActId"));   //get Protocol Rev Event Activity
-                if (lCurAct != lPrevAct) {                                                  //changed?
-                    if (lPrevAct != 0) {                                                        //Not first?
-                        mArrProtRevEvtAct.add(newProtRevEvtAct);                                      //Add to the array list
-
-                        //While we iterate, Objects are added to arrays when a new one is found
-                        //Now we need to add the last of each object, if it exists
-                        if (lCurRsp > 0) {
-                            mArrProtRevEvtActRsp.add(newProtRevEvtActRsp);
+            String strQry = "SELECT * FROM vProtRevEvtActivities WHERE ActId is not NULL and ActTypeId IS NOT NULL ORDER BY ProtRevId, ProtRevEvtId, ActSeq, ProtRevEvtActId, ActRspSeq";
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Event Activities and Responses
+                {
+                    lCurRev = crs.getLong(crs.getColumnIndex("ProtRevId"));     //get Protocol Rev
+                    if (lCurRev != lPrevRev) {                                              //changed?
+                        if (lPrevRev != 0) {                                                    //Not first?
+                            mArrProtRev.add(newProtRev);                                              //Add to the array list
                         }
+                        newProtRev = new ProtocolRevision();
+                        newProtRev.setProtocolRevId(lCurRev);                                     //set current Protocol Rev
+                        //set current protocol Rev values
+                        newProtRev.setProtocolName(crs.getString(crs.getColumnIndex("ProtName")));          //todo add to vProtRevEvtActivities
+                        newProtRev.setProtocolRevName(crs.getString(crs.getColumnIndex("ProtRevName")));    //todo add to vProtRevEvtActivities
+                        newProtRev.setProtocolRevDt(crs.getString(crs.getColumnIndex("ProtRevDt")));        //todo add to vProtRevEvtActivities
+                        newProtRev.setProtocolRevEventCnt(crs.getLong(crs.getColumnIndex("EvtCnt")));
+
+                        lPrevRev = lCurRev;                                                     //reset previous
                     }
-                    newProtRevEvtAct = new EventActivity();
-                    newProtRevEvtAct.setProtocolRevEventActivityId(lCurAct);                      //set current
-                    lCurRsp = 0;                                                                //Init response cnt
-                    lPrevRsp = 0;                                                               //Init response previous
-                                                                                                //set current Activity Values
-                    newProtRevEvtAct.setProtocolRevEventId(lCurEvt);
-                    newProtRevEvtAct.setActivitySeq(crs.getLong(crs.getColumnIndex("ActSeq")));
-                    newProtRevEvtAct.setActivityId(crs.getLong(crs.getColumnIndex("ActId")));
-                    newProtRevEvtAct.setProtRevEvtApplyTo(crs.getString(crs.getColumnIndex("ApplyTo")));
-                    newProtRevEvtAct.setMinRange(crs.getLong(crs.getColumnIndex("MinRange")));
-                    newProtRevEvtAct.setMaxRange(crs.getLong(crs.getColumnIndex("MaxRange")));
-                    newProtRevEvtAct.setActivityTypeId(crs.getLong(crs.getColumnIndex("ActTypeId")));
-                    newProtRevEvtAct.setActivityTypeCode(crs.getString(crs.getColumnIndex("ActTypeCode")));
-                    newProtRevEvtAct.setActivityText(crs.getString(crs.getColumnIndex("ActText")));
-                    newProtRevEvtAct.setActivityPictureCode(crs.getString(crs.getColumnIndex("ActPictureCode")));
-                    newProtRevEvtAct.setActivityResponseTypeId(crs.getLong(crs.getColumnIndex("RspTypeId")));
-                    newProtRevEvtAct.setActivityResponseTypeCode(crs.getString(crs.getColumnIndex("ActResponseTypeCode")));
+
+                    lCurEvt = crs.getLong(crs.getColumnIndex("ProtRevEvtId"));  //get Protocol Rev Event
+                    if (lCurEvt != lPrevEvt) {                                              //changed?
+                        if (lPrevEvt != 0) {                                                    //Not first?
+                            mArrProtRevEvt.add(newProtRevEvt);                                        //Add to the array list
+
+                        }
+                        newProtRevEvt = new ProtocolRevEvent();
+                        newProtRevEvt.setProtocolRevEventId(lCurEvt);                             //set current Event
+                        //set current Event Values
+                        newProtRevEvt.setProtocolRevId(lCurRev);
+                        newProtRevEvt.setProtocolRevEventName(crs.getString(crs.getColumnIndex("ProtRevEvtName")));
+                        newProtRevEvt.setFrequencyCode(crs.getString(crs.getColumnIndex("EvtFreq")));
+                        newProtRevEvt.setEventDayStart(crs.getLong(crs.getColumnIndex("EvtStart")));
+//                    newProtRevEvt.sete(crs.getLong(crs.getColumnIndex("EvtDaysDuration")));
+                        newProtRevEvt.setEventTimeOpen(crs.getString(crs.getColumnIndex("EvtTimeOpen")));
+                        newProtRevEvt.setEventTimeWarn(crs.getString(crs.getColumnIndex("EvtTimeWarn")));
+                        newProtRevEvt.setEventTimeClose(crs.getString(crs.getColumnIndex("EvtTimeClose")));
+                        //                   newProtRevEvt.setEventActivityCnt(crs.getLong(crs.getColumnIndex("eventActivityCnt")));
+
+                        lPrevEvt = lCurEvt;
+                    }
+
+                    lCurAct = crs.getLong(crs.getColumnIndex("ProtRevEvtActId"));   //get Protocol Rev Event Activity
+                    if (lCurAct != lPrevAct) {                                                  //changed?
+                        if (lPrevAct != 0) {                                                        //Not first?
+                            mArrProtRevEvtAct.add(newProtRevEvtAct);                                      //Add to the array list
+
+                            //While we iterate, Objects are added to arrays when a new one is found
+                            //Now we need to add the last of each object, if it exists
+                            if (lCurRsp > 0) {
+                                mArrProtRevEvtActRsp.add(newProtRevEvtActRsp);
+                            }
+                        }
+                        newProtRevEvtAct = new EventActivity();
+                        newProtRevEvtAct.setProtocolRevEventActivityId(lCurAct);                      //set current
+                        lCurRsp = 0;                                                                //Init response cnt
+                        lPrevRsp = 0;                                                               //Init response previous
+                        //set current Activity Values
+                        newProtRevEvtAct.setProtocolRevEventId(lCurEvt);
+                        newProtRevEvtAct.setActivitySeq(crs.getLong(crs.getColumnIndex("ActSeq")));
+                        newProtRevEvtAct.setActivityId(crs.getLong(crs.getColumnIndex("ActId")));
+                        newProtRevEvtAct.setProtRevEvtApplyTo(crs.getString(crs.getColumnIndex("ApplyTo")));
+                        newProtRevEvtAct.setMinRange(crs.getLong(crs.getColumnIndex("MinRange")));
+                        newProtRevEvtAct.setMaxRange(crs.getLong(crs.getColumnIndex("MaxRange")));
+                        newProtRevEvtAct.setActivityTypeId(crs.getLong(crs.getColumnIndex("ActTypeId")));
+                        newProtRevEvtAct.setActivityTypeCode(crs.getString(crs.getColumnIndex("ActTypeCode")));
+                        newProtRevEvtAct.setActivityText(crs.getString(crs.getColumnIndex("ActText")));
+                        newProtRevEvtAct.setActivityPictureCode(crs.getString(crs.getColumnIndex("ActPictureCode")));
+                        newProtRevEvtAct.setActivityResponseTypeId(crs.getLong(crs.getColumnIndex("RspTypeId")));
+                        newProtRevEvtAct.setActivityResponseTypeCode(crs.getString(crs.getColumnIndex("ActResponseTypeCode")));
 //                    newProtRevEvtAct.setActivityResponseCnt();
 //                    newProtRevEvtAct.setImageFileId(crs.getLong(crs.getColumnIndex("ImageFileId")));
 //                    newProtRevEvtAct.setImageFileName(crs.getString(crs.getColumnIndex("ImageFileName")));
 //                    newProtRevEvtAct.setImageFilePath(crs.getString(crs.getColumnIndex("ImageFilePath")));
 //                    newProtRevEvtAct.setActivityResponseCnt(crs.getLong(crs.getColumnIndex("ActRespCnt")));     //Use Field or Calculate???
 
-                    lPrevAct = lCurAct;
-                }
+                        lPrevAct = lCurAct;
+                    }
 
-                //TODO: Future just get ActRspId from the View.  Currently it is not in there
-                lCurRspTypeId = crs.getLong(crs.getColumnIndex("RspTypeId"));   //get response type
-                if ((lCurRspTypeId > 1) && (lCurRspTypeId != 4)) {                          //Greater than 1 means there is a response, Not 4 means skip Sliders
+                    //TODO: Future just get ActRspId from the View.  Currently it is not in there
+                    lCurRspTypeId = crs.getLong(crs.getColumnIndex("RspTypeId"));   //get response type
+                    if ((lCurRspTypeId > 1) && (lCurRspTypeId != 4)) {                          //Greater than 1 means there is a response, Not 4 means skip Sliders
 //20200126
 //                    lCurRsp = lCurRsp + 1;                                                      //increment Protocol Rev Event Activity Response
-                    lCurRsp = crs.getLong(crs.getColumnIndex("ActRspId"));          //get ActResponseId                                                     //increment Protocol Rev Event Activity Response
-                    if (lCurRsp != lPrevRsp) {                                                  //changed?
-                        if (lPrevRsp != 0) {                                                        //Not first?
-                            mArrProtRevEvtActRsp.add(newProtRevEvtActRsp);                                //Add to the array list
+                        lCurRsp = crs.getLong(crs.getColumnIndex("ActRspId"));          //get ActResponseId                                                     //increment Protocol Rev Event Activity Response
+                        if (lCurRsp != lPrevRsp) {                                                  //changed?
+                            if (lPrevRsp != 0) {                                                        //Not first?
+                                mArrProtRevEvtActRsp.add(newProtRevEvtActRsp);                                //Add to the array list
+                            }
+
+                            newProtRevEvtActRsp = new ActivityResponse();
+                            newProtRevEvtActRsp.setProtocolRevEventActivityId(lCurAct);                      //set current Response
+                            //set current Response Values
+                            newProtRevEvtActRsp.setActRspId(lCurRsp);
+                            newProtRevEvtActRsp.setActId(crs.getLong(crs.getColumnIndex("ActId")));
+                            newProtRevEvtActRsp.setActRspSeq(crs.getLong(crs.getColumnIndex("ActRspSeq")));
+                            newProtRevEvtActRsp.setActRspValue(crs.getLong(crs.getColumnIndex("ActRspValue")));
+                            newProtRevEvtActRsp.setActRspText(crs.getString(crs.getColumnIndex("ActRspText")));
+
+                            lPrevRsp = lCurRsp;
                         }
-
-                        newProtRevEvtActRsp = new ActivityResponse();
-                        newProtRevEvtActRsp.setProtocolRevEventActivityId(lCurAct);                      //set current Response
-                        //set current Response Values
-                        newProtRevEvtActRsp.setActRspId(lCurRsp);
-                        newProtRevEvtActRsp.setActId(crs.getLong(crs.getColumnIndex("ActId")));
-                        newProtRevEvtActRsp.setActRspSeq(crs.getLong(crs.getColumnIndex("ActRspSeq")));
-                        newProtRevEvtActRsp.setActRspValue(crs.getLong(crs.getColumnIndex("ActRspValue")));
-                        newProtRevEvtActRsp.setActRspText(crs.getString(crs.getColumnIndex("ActRspText")));
-
-                        lPrevRsp = lCurRsp;
                     }
                 }
             }
-        }
-        //While we iterate, Objects are added to arrays when a new one is found
-        //Now we need to add the last of each object, if it exists
-        if (lCurRev > 0) {
-            mArrProtRev.add(newProtRev);
-        }
-        if (lCurEvt > 0) {
-            mArrProtRevEvt.add(newProtRevEvt);
-        }
-        if (lCurAct > 0) {
-            mArrProtRevEvtAct.add(newProtRevEvtAct);
-        }
-        if (lCurRsp > 0) {
-            mArrProtRevEvtActRsp.add(newProtRevEvtActRsp);
-        }
+            //While we iterate, Objects are added to arrays when a new one is found
+            //Now we need to add the last of each object, if it exists
+            if (lCurRev > 0) {
+                mArrProtRev.add(newProtRev);
+            }
+            if (lCurEvt > 0) {
+                mArrProtRevEvt.add(newProtRevEvt);
+            }
+            if (lCurAct > 0) {
+                mArrProtRevEvtAct.add(newProtRevEvtAct);
+            }
+            if (lCurRsp > 0) {
+                mArrProtRevEvtActRsp.add(newProtRevEvtActRsp);
+            }
+            crs.close();
+            dba.close();
 
-        crs.close();
-        dba.close();
-
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:GetProtocolFromDB:NPEx", e.toString());
+            //todo handle
+        }
         return true;
     }
 
@@ -794,22 +792,14 @@ public class AlwaysService extends Service {
      */
     private boolean InitDirectoryTree() {
 
-
-        String strRootDir = this.getDataDir().getPath();            //./...
+        Context ctx = getApplicationContext();
         File fDir;
         File fFile;
         FileOutputStream fStream;
         String str;
         byte [] sBytes;
 
-        fDir = new File(strRootDir, APP_DIR_PROTOCOL);
-
-        if (!fDir.exists()) {
-            if (!fDir.mkdirs()) {
-                //todo what if fail?
-            }
-        }
-        fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
+        fFile = new File(ctx.getExternalFilesDir(APP_DIR_PROTOCOL), "Readme.dat");
         try {
             if (!fFile.exists()) {
                 str = "The current Protocol is stored in this directory.";
@@ -823,15 +813,7 @@ public class AlwaysService extends Service {
             //todo handle
         }
 
-//        fDir = new File(this.getExternalFilesDir(null), strDir);
-        fDir = new File(strRootDir, APP_DIR_PROTOCOL_ARCHIVE);
-        if (!fDir.exists()) {
-            if (!fDir.mkdirs()) {
-                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_PROTOCOL_ARCHIVE", "failed to create directory");
-                //todo handle
-            }
-        }
-        fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
+        fFile = new File(ctx.getExternalFilesDir(APP_DIR_PROTOCOL_ARCHIVE), "Readme.dat");
         try {
             if (!fFile.exists()) {
                 str = "Previous Protocols are stored in this directory.";
@@ -845,15 +827,7 @@ public class AlwaysService extends Service {
             //todo handle
         }
 
-//        fDir = new File(this.getExternalFilesDir(null), strDir);
-        fDir = new File(strRootDir, APP_DIR_PARTICIPANTS);
-        if (!fDir.exists()) {
-            if (!fDir.mkdirs()) {
-                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_PARTICIPANTS", "failed to create directory");
-                //todo handle
-            }
-        }
-        fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
+        fFile = new File(ctx.getExternalFilesDir(APP_DIR_PARTICIPANTS), "Readme.dat");
         try {
             if (!fFile.exists()) {
                 str = "Each Participant will have a directory here.";
@@ -867,15 +841,7 @@ public class AlwaysService extends Service {
             //todo handle
         }
 
-//        fDir = new File(this.getExternalFilesDir(null), strDir);
-        fDir = new File(strRootDir, APP_DIR_DATA);
-        if (!fDir.exists()) {
-            if (!fDir.mkdirs()) {
-                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_DATA", "failed to create directory");
-                //todo handle
-            }
-        }
-        fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
+        fFile = new File(ctx.getExternalFilesDir(APP_DIR_DATA), "Readme.dat");
         try {
             if (!fFile.exists()) {
                 str = "The current working Database is stored in this directory.";
@@ -889,22 +855,7 @@ public class AlwaysService extends Service {
             //todo handle
         }
 
-        fFile = new File(fDir, APP_DATA_DBNAME);    //Getting a file within the dir.
-//        try {
-
-        if (!fFile.exists()) {
-            installDatabaseFromAssets();
-        }
-
-//        fDir = new File(this.getExternalFilesDir(null), strDir);
-        fDir = new File(strRootDir, APP_DIR_DATA_ARCHIVE);
-        if (!fDir.exists()) {
-            if (!fDir.mkdirs()) {
-                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_DATA_ARCHIVE", "failed to create directory");
-                //todo handle
-            }
-        }
-        fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
+        fFile = new File(ctx.getExternalFilesDir(APP_DIR_DATA_ARCHIVE), "Readme.dat");
         try {
             if (!fFile.exists()) {
                 str = "Database backups are stored in this directory.";
@@ -918,15 +869,7 @@ public class AlwaysService extends Service {
             //todo handle
         }
 
-//        fDir = new File(this.getExternalFilesDir(null), strDir);
-        fDir = new File(strRootDir, APP_DIR_DATA_FRESH);
-        if (!fDir.exists()) {
-            if (!fDir.mkdirs()) {
-                Log.d("AlwaysService:InitDirectoryTree:APP_DIR_DATA_FRESH", "failed to create directory");
-                //todo handle
-            }
-        }
-        fFile = new File(fDir, "Readme.dat"); //Getting a file within the dir.
+        fFile = new File(ctx.getExternalFilesDir(APP_DIR_DATA_FRESH), "Readme.dat");
         try {
             if (!fFile.exists()) {
                 str = "A Fresh, empty Database is stored in this directory.";
@@ -1004,15 +947,19 @@ public class AlwaysService extends Service {
 
     /* Get next Activity Index in the Event */
     public int setNextActivityIdx() {
-        miCurActIdx++;                                                                              //increment activity index
+        miCurActIdx++;                                              //increment activity index
+        if (miCurActIdx == mArrProtRevEvtAct.size()) {              //passed end of array?
+            setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
+            AlwaysServiceStateMachine();                                //exercise state machine
+            return miCurActIdx;                                         //bail, return index
+        }
+
         while (mArrProtRevEvtAct.get(miCurActIdx).getProtocolRevEventId() != mlCurProtRevEvtId) {   //different event?
             miCurActIdx++;                                                                              //increment again
             if (miCurActIdx == mArrProtRevEvtAct.size()) {              //passed end of array?
- //               miCurActIdx = 0;    //todo best way to finish event?
-//                mEventState = ALWAYS_SVC_EVENT_COMPLETE;
                 setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
                 AlwaysServiceStateMachine();                                //exercise state machine
-                break;                                                                                      //bail
+                break;                                                      //bail
             }
         }
         return miCurActIdx;             //return index
@@ -1217,39 +1164,35 @@ public class AlwaysService extends Service {
         }
 
         /////////////// NOT Admin ID - Continue ////////////////////
-
-            //        DatabaseAccess dba = DatabaseAccess.getInstance(Global.GetAppContext());
-        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
-        try {
-            dba.open();                                                                 //open database
-        } catch (NullPointerException e) {
-            Log.e("AlwaysService:TryLogin:NPEx", e.toString());
-            //todo handle
-        }
-//        Object[][] patInfo = dba.GetParticipantInfo();
-
-        String strQry = "SELECT * FROM tParticipant ORDER BY PatNumber";
-        Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
-
         int iPatID = -1;
         int iPatNum;
         String strPatNum;
         String strPatStudyNum = "";
         String strPatPW = "";
 
-        while (crs.moveToNext()) {                                                  //Iterate Participants
-            iPatNum = crs.getInt(crs.getColumnIndex("PatNumber"));             //Get Participant Number
-            strPatNum = String.valueOf(iPatNum);                                        //convert string
-            if (strPatNum.equals(username)) {                                           //Same as looking for?
-                iPatID = crs.getInt(crs.getColumnIndex("PatId"));                   //set other fields
-                strPatStudyNum = crs.getString(crs.getColumnIndex("StudyPatNumber"));
-                strPatPW = crs.getString(crs.getColumnIndex("Password"));
+            //        DatabaseAccess dba = DatabaseAccess.getInstance(Global.GetAppContext());
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            dba.open();                                                                 //open db
+            String strQry = "SELECT * FROM tParticipant ORDER BY PatNumber";
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Participants
+                iPatNum = crs.getInt(crs.getColumnIndex("PatNumber"));             //Get Participant Number
+                strPatNum = String.valueOf(iPatNum);                                        //convert string
+                if (strPatNum.equals(username)) {                                           //Same as looking for?
+                    iPatID = crs.getInt(crs.getColumnIndex("PatId"));                   //set other fields
+                    strPatStudyNum = crs.getString(crs.getColumnIndex("StudyPatNumber"));
+                    strPatPW = crs.getString(crs.getColumnIndex("Password"));
 
-                break;
+                    break;
+                }
             }
+            crs.close();
+            dba.close();
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:TryLogin:NPEx", e.toString());
+            //todo handle
         }
-        crs.close();
-        dba.close();
 
         if (iPatID == -1) {                     //user not found
             return LOGIN_PARTICPANT_ERR_ID;         //return Participant ID error
@@ -1302,7 +1245,7 @@ public class AlwaysService extends Service {
 
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
         try {
-            dba.open();                                                                 //open
+            dba.open();                                                                 //open db
 
             TParticipantEventActivity actResp = new TParticipantEventActivity();        //new event activity to record
             actResp.setPatevtid(mlCurPatEvtId);                                         //set patient event id
@@ -1442,7 +1385,7 @@ public class AlwaysService extends Service {
 
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
         try {
-            dba.open();                                                                 //open
+            dba.open();                                                                 //open db
             lNewPatEvtId = dba.InsertTParticipantEvent(mCurPatEvt);                     //create new database event;
             mCurPatEvt.setPatEvtId(lNewPatEvtId);                                       //set current PatEvtId
             dba.close();                                                                //close db
@@ -1504,38 +1447,33 @@ public class AlwaysService extends Service {
         }
         return oldEvtCnt;
     }
-//    public String EndParticipantEvent(long patEvtId, AppCompatActivity caller, DatabaseAccess dba, DateFormat dFormat) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
-//        if (caller == null || dba == null || dFormat == null)
-//            return null; //default for method misuse
-//        dba.open();
-//        dba.MarkParticipantEventEnded(patEvtId, dFormat.format(Calendar.getInstance().getTime()));
-//        String path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
-//                "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", caller);
-//        dba.close();
-//        return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
-//    }
+
     public String EndParticipantEvent(long patEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
 
-//        AppCompatActivity activity = getApplicationContext().
         Globals glob = new Globals();
         String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());       //get datetime now
         String path = "";
+        String jsonSendResponse = "";
 
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
         try {
-            dba.open();
-            dba.MarkParticipantEventEnded(patEvtId, strDt);
+            dba.open();                                                             //open
+            dba.MarkParticipantEventEnded(patEvtId, strDt);                         //mark event ended
+
+            AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();      //get activity for context
+                                                                                    //create JSON output
+            path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
+                    "vInnerPatEvt","PatEventImages", "vInnerPatEvtImages", activity);
+
+            jsonSendResponse = dba.TrySendJSONToServer(path);                       //send JSON
             dba.close();
 
-            AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();
-            path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
-                    "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", activity);
-
         } catch (NullPointerException e ) {
-            Log.e("AlwaysService:StartParticipantEvent:NPEx", e.toString());
+            Log.e("AlwaysService:EndParticipantEvent:NPEx", e.toString());
             //todo handle, try again?
+        } catch (Exception e) {
+            Log.e("AlwaysService:EndParticipantEvent:Ex", e.toString());
         }
-
 
         return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
     }

@@ -23,23 +23,33 @@ import com.ora.android.eyecup.oradb.TParticipantEventActivity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import static android.content.Context.MODE_PRIVATE;
+import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
+import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_EVENTS;
 import static com.ora.android.eyecup.Globals.DT_FMT_FULL_ACTIVITY;
+import static com.ora.android.eyecup.Globals.DT_FMT_FULL_FILENAME;
 
 public class DatabaseAccess {
     private SQLiteOpenHelper openHelper;
@@ -142,6 +152,20 @@ public class DatabaseAccess {
         }
         return success;
     }
+
+    public String GetStudyPatNumber() {
+        String studyPatNumber = "";
+        try { c = db.rawQuery("SELECT StudyPatNumber FROM tParticipant LIMIT 1;", new String[] { }); }
+        catch (Exception e) {
+            Log.e("DA:GetParticipantInfo:Ex", e.toString());
+            //todo handle
+        }
+        c.moveToFirst();
+        studyPatNumber = c.getString(0);
+        c.close();
+        return studyPatNumber;
+    }
+
     public Object[][] GetParticipantInfo() { //returns null if no participant exists
         try { c = db.rawQuery("SELECT * FROM tParticipant LIMIT 1;", new String[] { }); }
         catch (Exception e) {
@@ -150,7 +174,7 @@ public class DatabaseAccess {
         }
         Object[][] selectedVals = new Object[2][c.getCount()];
         //todo Warning:(133, 13) Condition 'selectedVals.length == 0' is always 'false'
-        if (selectedVals.length == 0)
+        if (selectedVals[0].length == 0)
             return null; //no participant exists
         c.moveToFirst();
         for (int i = 0; i < c.getColumnCount(); i++) {
@@ -313,6 +337,68 @@ public class DatabaseAccess {
             //todo handle
         }
     }
+
+    public String TrySendJSONToServer(String filePath) throws Exception {
+
+        String attachmentName = filePath.substring(filePath.lastIndexOf("/") + 1);
+        String attachmentFileName = attachmentName + ".json";
+        String crlf = "\r\n";
+        String twoHyphens = "--";
+        String boundary =  "*****";
+
+        HttpURLConnection httpUrlConnection = null;
+        URL url = new URL("http://mattpestillo.com"); //edit: change to destination url
+        httpUrlConnection = (HttpURLConnection) url.openConnection();
+        httpUrlConnection.setUseCaches(false);
+        httpUrlConnection.setDoOutput(true);
+
+        httpUrlConnection.setRequestMethod("POST");
+        httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
+        httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
+        httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+
+        DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
+
+        List<Byte> bytesList = new ArrayList<Byte>();
+        try (InputStream in = new FileInputStream(filePath)) {
+            byte[] buf = new byte[1024];
+            while (in.read(buf) > 0) {
+                for (int i = 0; i < buf.length; i++)
+                    bytesList.add(buf[i]);
+            }
+        }
+        byte[] bytes = new byte[bytesList.size()];
+        for (int i = 0; i < bytes.length; i++)
+            bytes[i] = bytesList.get(i);
+
+        request.writeBytes(twoHyphens + boundary + crlf);
+        request.writeBytes("Content-Disposition: form-data; name=\"" + attachmentName + "\";filename=\""
+                + attachmentFileName + "\"" + crlf);
+        request.writeBytes(crlf);
+        request.write(bytes);
+
+        request.writeBytes(crlf);
+        request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
+
+        request.flush();
+        request.close();
+
+        InputStream responseStream = new BufferedInputStream(httpUrlConnection.getInputStream());
+        BufferedReader responseStreamReader = new BufferedReader(new InputStreamReader(responseStream));
+
+        String line = "";
+        StringBuilder stringBuilder = new StringBuilder();
+
+        while ((line = responseStreamReader.readLine()) != null) {
+            stringBuilder.append(line).append("\n");
+        }
+        responseStreamReader.close();
+
+        responseStream.close();
+        httpUrlConnection.disconnect();
+
+        return stringBuilder.toString();
+    }
     public void MarkParticipantEventUploaded(ParticipantEvent newEvent) { //edit: call when uploaded
         if (newEvent == null)
             return; //returned for method misuse
@@ -323,7 +409,6 @@ public class DatabaseAccess {
             //todo handle
         }
     }
-
 
     private void InsertProtocolRevision(ProtocolRevision entity) {
         if (entity == null)
@@ -503,12 +588,14 @@ public class DatabaseAccess {
         if (outerObjectDbView == null || innerObjectsName == null || innerObjectsDbView == null || innerImagesName == null
                 || innerImagesDbView == null || caller == null)
             return fileName;
+
         try { c = db.rawQuery("SELECT * FROM " + outerObjectDbView + " LIMIT 1;", null); }
         catch (Exception e) {
             Log.e("DA:CreateJSON.rawQuery:Ex", e.toString());
             //todo handle
             return fileName;
         }
+
         JSONObject resultObj = new JSONObject();
         c.moveToFirst();
         for (int i = 0; i < c.getColumnCount(); i++) {
@@ -548,9 +635,29 @@ public class DatabaseAccess {
         catch (Exception e) {
             //todo handle
         }
-        fileName = FormatFileName("files/Patient_Identifier/Events/" + relFileName, ".json",
-                new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
-        try { MoveTo(FormatFileName("files/" + relFileName, ".json", null), fileName, false); }
+//        fileName = FormatFileName("files/Patient_Identifier/Events/" + relFileName, ".json",
+//        fileName = FormatFileName("files/" + GetStudyPatNumber() + "_Patient_Identifier/Events/" + relFileName, ".json",
+
+        //camera location
+        // String strDir = APP_DIR_PARTICIPANTS + "/" + activity.getPatNumber() + "/Pics";
+        // String strFile = activity.getPatNumber();
+        // strFile = strFile + "_" + mstrPicCode;
+        // strFile = strFile + "_" + glob.GetDateStr(DT_FMT_FULL_FILENAME,dt);
+        // //toto full picture file name
+        // strFile = strFile + ".jpg";
+
+        // File fNewFile = new File(activity.getExternalFilesDir(strDir), strFile);
+//        fileName = FormatFileName("files/" + GetStudyPatNumber() + "/Events/" + relFileName, ".json", new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
+//        try { MoveTo(FormatFileName("files/" + relFileName, ".json", null), fileName, false); }
+        Globals glob = new Globals();
+        Date dt = Calendar.getInstance().getTime();
+         String strDir = APP_DIR_PARTICIPANTS + "/" + GetStudyPatNumber() + APP_DIR_PARTICIPANT_EVENTS;
+         String strFile = GetStudyPatNumber();
+         strFile = strFile + "_" + glob.GetDateStr(DT_FMT_FULL_FILENAME,dt);
+         //toto full picture file name
+//         strFile = strFile + ".json";
+        fileName = FormatFileName(APP_DIR_PARTICIPANTS + "/" + GetStudyPatNumber() + APP_DIR_PARTICIPANT_EVENTS + relFileName, ".json", new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
+        try { MoveTo(FormatFileName(APP_DIR_PARTICIPANTS + "/" + relFileName, ".json", null), fileName, false); }
         catch (Exception e) {
             //todo handle
         }
@@ -562,10 +669,6 @@ public class DatabaseAccess {
             return; //returned for method misuse
 
         try {
-//            db.execSQL("INSERT INTO tParticipantEventActivity (PatEvtId, ProtRevEvtActId, ResponsePath, PatEvtActDt) VALUES ("
-//                    + patEvtId + ", " + picture.getProtocolRevEventActivityId().toString() + ", '" + picture.getPictureFileName() +
-//                    "', '" + picture.getPictureDt() + "');");
-
             Globals glob = new Globals();
             String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
 
@@ -578,7 +681,6 @@ public class DatabaseAccess {
             strSQL = strSQL + "'" + strDt + "');";
 
             db.execSQL(strSQL);
-
         }
         catch (Exception e) {
             Log.e("DA:SavePatEvtActivityResponse:Ex", e.toString());
