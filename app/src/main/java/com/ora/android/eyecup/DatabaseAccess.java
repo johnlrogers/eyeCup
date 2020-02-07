@@ -17,6 +17,8 @@ import com.ora.android.eyecup.json.PatEventPicture;
 import com.ora.android.eyecup.json.PatEventResponse;
 import com.ora.android.eyecup.json.ProtocolRevEvent;
 import com.ora.android.eyecup.json.ProtocolRevision;
+import com.ora.android.eyecup.oradb.TParticipantEvent;
+import com.ora.android.eyecup.oradb.TParticipantEventActivity;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -37,6 +39,8 @@ import java.util.List;
 import androidx.appcompat.app.AppCompatActivity;
 
 import static android.content.Context.MODE_PRIVATE;
+import static com.ora.android.eyecup.Globals.DT_FMT_FULL_ACTIVITY;
+
 public class DatabaseAccess {
     private SQLiteOpenHelper openHelper;
     public SQLiteDatabase db;
@@ -156,6 +160,7 @@ public class DatabaseAccess {
         c.close();
         return selectedVals;
     }
+
     public List<Object[]> GetTableData(String tblName) { //first row is column names
         try { c = db.rawQuery("SELECT * FROM " + tblName + ";", new String[] { }); }
         catch (Exception e) {
@@ -232,6 +237,38 @@ public class DatabaseAccess {
             //todo handle
         }
     }
+
+    public long InsertTParticipantEvent(TParticipantEvent patEvt) {
+        long lNextId = 0;
+        if (patEvt == null)
+            return lNextId; //returned for method misuse
+
+        try {
+            String strSQL = "INSERT INTO tParticipantEvent (PatId, DeviceId, ProtRevEvtId, PatEvtDtStart, PatEvtDtEnd, PatEvtDtUpload) VALUES (";
+            strSQL = strSQL + patEvt.getPatId() + ", ";
+            strSQL = strSQL + patEvt.getDeviceId() + ", ";
+            strSQL = strSQL + patEvt.getProtrevevtid() + ", ";
+            strSQL = strSQL + "'" + patEvt.getPatEvtDtStart() + "', ";
+            strSQL = strSQL + "'" + patEvt.getPatEvtDtEnd() + "', ";
+            strSQL = strSQL + "'" + patEvt.getPatEvtDtUpload() + "')";
+
+            db.execSQL(strSQL);
+
+            strSQL = "SELECT MAX(PatEvtId) as MaxId FROM tParticipantEvent";
+            Cursor crs = db.rawQuery(strSQL, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate cursor
+                lNextId = crs.getLong(crs.getColumnIndex("MaxId"));     //todo current or next event
+            }
+            crs.close();
+        }
+        catch (Exception e) {
+            Log.e("DA:InsertTParticipantEvent:Ex", e.toString());
+            //todo handle
+            return lNextId;
+        }
+        return lNextId; //returned for method misuse
+    }
+
     public void UpdateParticipantEventChildCnt(long patEvtId, boolean isResponse, int count) { //edit: call when child count is updated //set "isResponse" to "false" for picture count
         String colName = "PatEvtResponseCnt";
         if (!isResponse)
@@ -458,8 +495,10 @@ public class DatabaseAccess {
         }
         return value;
     }
+
     public String CreateJSON(String outerObjectDbView, String innerObjectsName, String innerObjectsDbView, String innerImagesName, //create applicable views in the DB browser for this method to call, which if they exist, will format the JSON file based on the content of that view (and otherwise save nothing to the file) and save it to the returned internal storage path
-            String innerImagesDbView, AppCompatActivity caller) {
+                             String innerImagesDbView, AppCompatActivity caller) {
+
         String fileName = ""; //default for method misuse
         if (outerObjectDbView == null || innerObjectsName == null || innerObjectsDbView == null || innerImagesName == null
                 || innerImagesDbView == null || caller == null)
@@ -517,4 +556,35 @@ public class DatabaseAccess {
         }
         return fileName;
     }
+
+    public void SavePatEvtActivityResponse(TParticipantEventActivity actResp) {
+        if (actResp == null)
+            return; //returned for method misuse
+
+        try {
+//            db.execSQL("INSERT INTO tParticipantEventActivity (PatEvtId, ProtRevEvtActId, ResponsePath, PatEvtActDt) VALUES ("
+//                    + patEvtId + ", " + picture.getProtocolRevEventActivityId().toString() + ", '" + picture.getPictureFileName() +
+//                    "', '" + picture.getPictureDt() + "');");
+
+            Globals glob = new Globals();
+            String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
+
+            String strSQL = "INSERT INTO tParticipantEventActivity (PatEvtId, ProtRevEvtActId, ResponseVal, ResponseTxt, ResponsePath, PatEvtActDt) VALUES (";
+            strSQL = strSQL + actResp.getPatevtid() + ", ";
+            strSQL = strSQL + actResp.getProtrevevtactid() + ", ";
+            strSQL = strSQL + actResp.getResponseVal() + ", ";
+            strSQL = strSQL + "'" + actResp.getResponseTxt() + "', ";
+            strSQL = strSQL + "'" + actResp.getResponsePath() + "', ";
+            strSQL = strSQL + "'" + strDt + "');";
+
+            db.execSQL(strSQL);
+
+        }
+        catch (Exception e) {
+            Log.e("DA:SavePatEvtActivityResponse:Ex", e.toString());
+            //todo handle
+        }
+        return;
+    }
+
 }

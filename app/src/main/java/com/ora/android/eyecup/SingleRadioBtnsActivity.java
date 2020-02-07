@@ -96,8 +96,8 @@ public class SingleRadioBtnsActivity extends AppCompatActivity {
     }
 
     private boolean saveResponse() {
-        boolean bRet = false;
-        //todo save to database
+        boolean bRet;
+        bRet = alwaysService.SaveActivityResult(miCurActId, miRspVal1, mstrRspTxt, "N");
         return bRet;
     }
 

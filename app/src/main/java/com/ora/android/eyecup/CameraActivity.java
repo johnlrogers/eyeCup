@@ -51,7 +51,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private boolean saveResponse() {
         boolean bRet = false;
-        //todo save to database
+        bRet = alwaysService.SaveActivityResult(miCurActId, 0, "", getActTxt());
         return bRet;
     }
 

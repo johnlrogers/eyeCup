@@ -1366,7 +1366,7 @@ public class Camera2BasicFragment extends Fragment
             case R.id.btn_accept: {
                 try {
                     CameraActivity activity = (CameraActivity) getActivity();
-                    activity.AcceptPicture(mFile.toString());
+                    activity.AcceptPicture(mFile.getName());
                     bWaitReview = false;
 //                    setControls();     //not reviewing
                 } catch (NullPointerException e) {

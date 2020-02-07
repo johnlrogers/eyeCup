@@ -103,7 +103,11 @@ public class Global { //use for all common activity functionality //edit: combin
         //todo Warning findViewById may produce NullPointerException
         return (T)GetCurrActivity().findViewById(id);
     }
-    private AppCompatActivity GetCurrActivity() {
+
+    public static Global GetGlobal() {
+        return global;
+    }
+    public AppCompatActivity GetCurrActivity() {
         if (navChain != null && navChain.length != 0)
             return navChain[navChain.length - 1];
         return null; //default for method misuse

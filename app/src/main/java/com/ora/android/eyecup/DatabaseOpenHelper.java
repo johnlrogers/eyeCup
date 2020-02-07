@@ -14,11 +14,12 @@ public class DatabaseOpenHelper extends SQLiteAssetHelper {
     private static final String DATABASE_NAME = APP_DATA_DBNAME;
 //    private static final int DATABASE_VERSION = 1;                //emulator
 //    private static final int DATABASE_VERSION = 2;                  //new device install
-    private static final int DATABASE_VERSION = 3;                  //new device install
+//    private static final int DATABASE_VERSION = 3;                  //new device install
+    private static final int DATABASE_VERSION = 4;                  //OraDb_V4 20200206
 
 //jlr add
     private static String TAG = "DataBaseHelper"; // Tag just for the LogCat window
-    private static String DB_NAME ="YourDbName"; // Database name
+    private static String DB_NAME ="OraDb"; // Database name
     private static int DB_VERSION = 1; // Database version
     private final File DB_FILE;
     private SQLiteDatabase mDataBase;

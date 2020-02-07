@@ -115,8 +115,11 @@ public class DoubleRadioBtnsActivity extends AppCompatActivity {
     }
 
     private boolean saveResponse() {
-        boolean bRet = false;
-        //todo save to database
+        boolean bRet;
+        bRet = alwaysService.SaveActivityResult(miCurActId, miRspVal1, mstrRspTxt1, "L");
+        if (bRet) {
+            bRet = alwaysService.SaveActivityResult(miCurActId, miRspVal2, mstrRspTxt2, "R");
+        }
         return bRet;
     }
 

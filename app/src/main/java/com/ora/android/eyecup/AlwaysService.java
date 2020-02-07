@@ -17,6 +17,10 @@ import com.ora.android.eyecup.json.PatEventPicture;
 import com.ora.android.eyecup.json.PatEventResponse;
 import com.ora.android.eyecup.json.ProtocolRevEvent;
 import com.ora.android.eyecup.json.ProtocolRevision;
+import com.ora.android.eyecup.oradb.TDevice;
+import com.ora.android.eyecup.oradb.TParticipant;
+import com.ora.android.eyecup.oradb.TParticipantEvent;
+import com.ora.android.eyecup.oradb.TParticipantEventActivity;
 import com.ora.android.eyecup.ui.login.LoginActivity;
 import com.ora.android.eyecup.utilities.FileHelper;
 import com.ora.android.eyecup.utilities.Notification;
@@ -26,11 +30,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 import java.util.Random;
 import java.util.Timer;
@@ -66,12 +70,21 @@ import static com.ora.android.eyecup.Globals.APP_DEMO_MODE;
 import static com.ora.android.eyecup.Globals.APP_DEMO_MODE_MIN_EXPIRE;
 import static com.ora.android.eyecup.Globals.APP_DEMO_MODE_MIN_OPEN;
 import static com.ora.android.eyecup.Globals.APP_DEMO_MODE_MIN_WARN;
+import static com.ora.android.eyecup.Globals.APP_DFLT_DEVICE_APPID;
+import static com.ora.android.eyecup.Globals.APP_DFLT_DEVICE_ID;
+import static com.ora.android.eyecup.Globals.APP_DFLT_PAT_DEPTID;
+import static com.ora.android.eyecup.Globals.APP_DFLT_PAT_ID;
+import static com.ora.android.eyecup.Globals.APP_DFLT_PAT_LOCID;
+import static com.ora.android.eyecup.Globals.APP_DFLT_PAT_NUM;
+import static com.ora.android.eyecup.Globals.APP_DFLT_PAT_STUDYID;
+import static com.ora.android.eyecup.Globals.APP_DFLT_PAT_STUDYPATNUM;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA_ARCHIVE;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA_FRESH;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL_ARCHIVE;
+import static com.ora.android.eyecup.Globals.DT_FMT_FULL_ACTIVITY;
 import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_ERR_NO_ERR;
 import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_ERR_PW;
 import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_NAME;
@@ -106,7 +119,7 @@ public class AlwaysService extends Service {
 
     private LocalDateTime mDtNextEvtStart = null;                           //init next event datetime
     private LocalDateTime mDtNextEvtWarn = null;                            //init next event datetime
-    private LocalDateTime mDtNextEvtExpire = null;                            //init next event datetime
+    private LocalDateTime mDtNextEvtExpire = null;                          //init next event datetime
     ArrayList<ProtocolRevision> mArrProtRev = new ArrayList<>();            //All Protocol Revs (should only be one, add for consistency)
     ArrayList<ProtocolRevEvent> mArrProtRevEvt = new ArrayList<>();         //All Protocol Rev Events
     ArrayList<EventActivity> mArrProtRevEvtAct = new ArrayList<>();         //All Protocol Rev Event Activities
@@ -116,15 +129,24 @@ public class AlwaysService extends Service {
     private int miCurProtRevEvtIdx = 0;                                     //Current mArrProtRevEvt Index
     private int miCurActIdx = 0;                                            //Current mArrProtRevEvtAct Index
 
-    private long mlCurProtRevId = 0;                                          //current Protocol Rev Id
-    private long mlCurProtRevEvtId = 0;                                       //Current Protocol Rev Event Id
-    private long mlCurProtRevEvtActId = 0;                                    //Current Protocol Rev Event Activity Id
+    private long mlCurProtRevId = 0;                                        //current Protocol Rev Id
+    private long mlCurProtRevEvtId = 0;                                     //Current Protocol Rev Event Id
+    private long mlCurProtRevEvtActId = 0;                                  //Current Protocol Rev Event Activity Id
 
-    private ParticipantEvent mPatEvt = new ParticipantEvent();
-    private PatEventResponse mPatEvtActRsp = new PatEventResponse();
-    private String mstrPatNumber = "20-003-0001-234-0004";                  //todo use Participant object, get form dB
-    private int miPatId = 4;
+    private TDevice mCurDevice = new TDevice();
+    private TParticipant mCurPat = new TParticipant();
+    private TParticipantEvent mCurPatEvt = new TParticipantEvent();
+    private TParticipantEventActivity mCurPatEvtAct = new TParticipantEventActivity();
 
+    private ParticipantEvent mJSONPatEvt = new ParticipantEvent();
+    private PatEventResponse mJSONPatEvtRsp = new PatEventResponse();
+    private PatEventPicture mJSONPatEvtPic = new PatEventPicture();
+
+//    private String mstrPatNumber;
+//    private int miPatId;
+
+    public DateFormat dateFormat = new SimpleDateFormat("EEE, MMM d, yyyy hh:mm:ss aaa");
+    public long mlCurPatEvtId = -1;
 
     /**************** start methods ***********************/
     public AlwaysService() {
@@ -135,14 +157,11 @@ public class AlwaysService extends Service {
     public void onCreate() {
         super.onCreate();
 
-//        if (APP_DEMO_MODE) {                            //Demo mode?
-//            mState = ALWAYS_SVC_STATE_EVT_WIN_OPEN;     //go straight to event
-//        }
-
         glob = new Globals();                   //init Globals object
         InitDirectoryTree();                    //create directory tree if not present
 
-        //        GetProtocolFromJSON();
+        GetDeviceFromDb();                      //get participant form database
+        GetPatFromDb();                         //get participant form database
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
 
         restartForeground();                    //start service if not running
@@ -325,6 +344,9 @@ public class AlwaysService extends Service {
                         case ALWAYS_SVC_EVENT_ABORT:
                             break;
                         case ALWAYS_SVC_EVENT_COMPLETE:
+
+                            EndParticipantEvent(mCurPatEvt.getPatEvtId());      //close the current event
+
                             strNextEventTime = setNextEvtDtStr();
                             intent = new Intent(this, IdleActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -363,7 +385,6 @@ public class AlwaysService extends Service {
         }
         return getAlwaysServiceState();
     }
-
 
     //return ProtRevIdx
     //get the current protocol rev index
@@ -539,11 +560,81 @@ public class AlwaysService extends Service {
         mlCurProtRevEvtId = mArrProtRevEvt.get(setNextProtRevEvtIdx()).getProtocolRevEventId();                     //get Current Protocol Rev Event Id
         mlCurProtRevEvtActId = mArrProtRevEvtAct.get(setNextProtRevEvtActIdx()).getProtocolRevEventActivityId();    //get Current Protocol Rev Event Activity Id
 
+        mlCurPatEvtId = StartParticipantEvent();
+
         GotoEvtAct(miCurActIdx);
 
         return miCurActIdx;
     }
 
+    /* Get the current participant from the database */
+    private boolean GetDeviceFromDb() {
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            dba.open();                                                                 //open db
+            String strQry = "SELECT * FROM tDevice";                                    //set SQL
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Cursor
+                //set current Participant
+                mCurDevice.setDeviceId(crs.getLong(crs.getColumnIndex("DeviceId")));        //DeviceId
+                mCurDevice.setDeviceAppId(crs.getString(crs.getColumnIndex("DeviceAppId")));//Device App Id (text)
+            }
+            crs.close();
+            dba.close();
+
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:GetDeviceFromDb:NPEx", e.toString());
+
+            Log.i("AlwaysService:GetDeviceFromDb:SetDefaults", e.toString());
+            mCurDevice.setDeviceId(APP_DFLT_DEVICE_ID);         //default DeviceId
+            mCurDevice.setDeviceAppId(APP_DFLT_DEVICE_APPID);   //default Device App Id (text)
+
+            return false;
+        }
+        return true;
+    }
+
+
+    /* Get the current participant from the database */
+    private boolean GetPatFromDb() {
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            dba.open();                                                                 //open db
+            String strQry = "SELECT * FROM tParticipant";                               //set SQL
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Cursor
+                                                                                            //set current Participant
+                mCurPat.setPatId(crs.getLong(crs.getColumnIndex("PatId")));             //PatId
+                mCurPat.setPatDeptId(crs.getLong(crs.getColumnIndex("PatDeptId")));     //DeptId
+                mCurPat.setPatStudyId(crs.getLong(crs.getColumnIndex("PatStudyId")));   //StudyId
+                mCurPat.setPatLocationId(crs.getLong(crs.getColumnIndex("PatLocationId")));     //LocationId
+                mCurPat.setPatNumber(crs.getInt(crs.getColumnIndex("PatNumber")));      //Pat number
+                String strFQPatNumber = crs.getString(crs.getColumnIndex("StudyPatNumber"));    //full qualify num
+                if (strFQPatNumber.length() == 0) {
+                    //todo format the fully qualified number if empty
+                }
+                mCurPat.setStudypatnumber(strFQPatNumber); //fully qualify patient number
+            }
+            crs.close();
+            dba.close();
+
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:GetPatFromDb:NPEx", e.toString());
+
+            Log.i("AlwaysService:GetPatFromDb:SetDefaults", e.toString());
+            mCurPat.setPatId(APP_DFLT_PAT_ID);              //PatId
+            mCurPat.setPatDeptId(APP_DFLT_PAT_DEPTID);      //DeptId
+            mCurPat.setPatStudyId(APP_DFLT_PAT_STUDYID);    //StudyId
+            mCurPat.setPatLocationId(APP_DFLT_PAT_LOCID);   //LocationId
+            mCurPat.setPatNumber(APP_DFLT_PAT_NUM);         //Pat number
+            mCurPat.setStudypatnumber(APP_DFLT_PAT_STUDYPATNUM); //fully qualify patient number
+
+            return true;
+        }
+        return true;
+    }
 
     private boolean GetProtocolFromDb() {
 
@@ -902,11 +993,13 @@ public class AlwaysService extends Service {
 
     public int StartEvent() {
 
+//        mlCurPatEvtId = StartParticipantEvent(DatabaseAccess.getInstance(getApplicationContext()), dateFormat);
         return StartProtocol();
     }
 
-    public String getPatNumber() {
-        return mstrPatNumber;
+    public String getStudyPatNumber() {
+//        return mstrPatNumber;
+        return mCurPat.getStudypatnumber();
     }
 
     /* Get next Activity Index in the Event */
@@ -938,6 +1031,7 @@ public class AlwaysService extends Service {
             return mArrProtRevEvtAct.get(j).getActivityTypeId().intValue();
         }
     }
+
     public String getActivityTextFromIdx(int j) {
 
         if (mArrProtRevEvtAct.size() <= j) {
@@ -1080,7 +1174,7 @@ public class AlwaysService extends Service {
                 intent.putExtra("ActIdx", miCurActIdx);
                 intent.putExtra("ActTxt", mArrProtRevEvtAct.get(iCurActIdx).getActivityText());
                 intent.putExtra("ActPicCode", mArrProtRevEvtAct.get(iCurActIdx).getActivityPictureCode());
-                intent.putExtra("PatNum", getPatNumber());
+                intent.putExtra("PatNum", getStudyPatNumber());
                 startActivity(intent);
 
                 break;
@@ -1200,74 +1294,166 @@ public class AlwaysService extends Service {
 
     }
 
-    private ParticipantEvent GetParticipantInfoEntity(DatabaseAccess dba) {
-        if (dba == null)
-            return null; //default for method misuse
-        ParticipantEvent event = new ParticipantEvent();
-        dba.open();
-        Object[][] patInfo = dba.GetParticipantInfo();
-        List<Object[]> deviceInfo = dba.GetTableData("tDevice");
-        dba.close();
-        for (int i = 0; i < patInfo.length; i++)
-        {
-            if (patInfo[i][0].equals("PatId")) {
-                event.setParticipantId(patInfo[i][1].toString());
-                miPatId = (int)patInfo[i][0];
-            }
-            else if (patInfo[i][0].equals("StudyPatNumber"))
-            {
-                mstrPatNumber = (String)patInfo[i][0];
-                Integer[] components = new Integer[5];
-                try {
-                    String[] spnComponents = patInfo[i][1].toString().split("-");
-                    for (int j = 0; j < spnComponents.length; j++)
-                        components[j] = Integer.parseInt(spnComponents[j]);
-                }
-                catch (Exception e) {
-                    Log.e("AlwaysService:getParticipantInfoEntity:Ex", e.toString());
-                    //todo handle
-                    components = null;
-                }
-                if (components != null) {
-                    event.setYearId(components[0].toString());
-                    event.setDepartmentId(components[1].toString());
-                    event.setStudyId(components[2].toString());
-                    event.setLocationId(components[3].toString());
-                    event.setSubjectId(components[4].toString());
-                }
-            }
+    //edit: call each time a participant event activity is committed; set "entity" to a PatEventResponse or a PatEventPicture
+    public boolean SaveActivityResult(int iActIdx, int iResponseVal, String strResponseTxt, String strResponsePath) {
+
+        if (iActIdx <= 0)       //not valid index?
+            return false;                 //bail
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
+        try {
+            dba.open();                                                                 //open
+
+            TParticipantEventActivity actResp = new TParticipantEventActivity();        //new event activity to record
+            actResp.setPatevtid(mlCurPatEvtId);                                         //set patient event id
+            actResp.setProtrevevtactid(mArrProtRevEvtAct.get(iActIdx).getProtocolRevEventActivityId().intValue());  //set prot rev event Activity Id
+            actResp.setResponseVal(iResponseVal);                                       //set Response value
+            actResp.setResponseTxt(strResponseTxt);                                     //set Response text
+            actResp.setResponsePath(strResponsePath);                                   //set Response path
+
+            dba.SavePatEvtActivityResponse(actResp);                                    //Save it
+            dba.close();                                                                //close db
+
+        } catch (NullPointerException e ) {
+            Log.e("AlwaysService:CommitActivityInfo:NPEx", e.toString());
+            //todo handle, try again?
+            return false;
         }
-        for (int i = 0; i < deviceInfo.get(0).length; i++)
-            if (deviceInfo.get(0)[i].equals("DeviceId"))
-                event.setDeviceId(deviceInfo.get(1)[i].toString());
-            else if (deviceInfo.get(0)[i].equals("DeviceAppId"))
-                event.setDeviceAppId(deviceInfo.get(1)[i].toString());
-        return event;
+
+//        if (entity.getClass().equals(PatEventResponse.class)) {
+//            dba.InsertParticipantResponse(patEvtId, (PatEventResponse)entity);
+//            dba.UpdateParticipantEventChildCnt(patEvtId, true, GetPatActivityRespOrPicCnt(patEvtId, false, dba));
+//        }
+//        else {
+//            dba.InsertParticipantPicture(patEvtId, (PatEventPicture) entity);
+//            dba.UpdateParticipantEventChildCnt(patEvtId, false, GetPatActivityRespOrPicCnt(patEvtId, true, dba));
+//        }
+//        dba.InsertParticipantPicture(mlCurPatEvtId, objPic);
+
+
+        return true;
     }
-    public long StartParticipantEvent(DatabaseAccess dba, long protocolRevId, long protocolRevEventId, long eventId, DateFormat dFormat) { //edit: call each time a participant event begins; returns its corresponding "PatEvtId"; have a universal "DateFormat" for formatting SQLite db dates, to set here and everywhere else applicable
-        if (dba == null || dFormat == null)
-            return -1; //default for method misuse
-        ParticipantEvent participantEvent = GetParticipantInfoEntity(dba);
-        List<Object[]> existingEvents = dba.GetTableData("tParticipantEvent");
-        long maxId = 0;
-        for (int i = 1; i < existingEvents.size(); i++) {
-            for (int j = 0; j < existingEvents.get(i).length; j++) {
-                if (existingEvents.get(0)[i].equals("PatEventId") && (long)existingEvents.get(i)[i] > maxId)
-                    maxId = (long)existingEvents.get(i)[i];
-            }
+
+//    private ParticipantEvent GetParticipantInfoEntity(DatabaseAccess dba) {
+//    private ParticipantEvent GetParticipantInfoEntity() {
+//
+//        ParticipantEvent event = new ParticipantEvent();
+//
+//        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());           //get and open database
+//        try {
+//            dba.open();
+//        } catch (NullPointerException e ) {
+//            Log.e("AlwaysService:CommitActivityInfo:NPEx", e.toString());
+//            //todo handle, try again?
+//            return false;
+//        }
+//
+//        dba.open();
+//        Object[][] patInfo = dba.GetParticipantInfo();
+//        List<Object[]> deviceInfo = dba.GetTableData("tDevice");
+//        dba.close();
+//        for (int i = 0; i < patInfo.length; i++)
+//        {
+//            if (patInfo[i][0].equals("PatId")) {
+//                event.setParticipantId(patInfo[i][1].toString());
+//                miPatId = (int)patInfo[i][0];
+//            }
+//            else if (patInfo[i][0].equals("StudyPatNumber"))
+//            {
+//                mstrPatNumber = (String)patInfo[i][0];
+//                Integer[] components = new Integer[5];
+//                try {
+//                    String[] spnComponents = patInfo[i][1].toString().split("-");
+//                    for (int j = 0; j < spnComponents.length; j++)
+//                        components[j] = Integer.parseInt(spnComponents[j]);
+//                }
+//                catch (Exception e) {
+//                    Log.e("AlwaysService:getParticipantInfoEntity:Ex", e.toString());
+//                    //todo handle
+//                    components = null;
+//                }
+//                if (components != null) {
+//                    event.setYearId(components[0].toString());
+//                    event.setDepartmentId(components[1].toString());
+//                    event.setStudyId(components[2].toString());
+//                    event.setLocationId(components[3].toString());
+//                    event.setSubjectId(components[4].toString());
+//                }
+//            }
+//        }
+//        for (int i = 0; i < deviceInfo.get(0).length; i++)
+//            if (deviceInfo.get(0)[i].equals("DeviceId"))
+//                event.setDeviceId(deviceInfo.get(1)[i].toString());
+//            else if (deviceInfo.get(0)[i].equals("DeviceAppId"))
+//                event.setDeviceAppId(deviceInfo.get(1)[i].toString());
+//        return event;
+//    }
+
+
+//    public long StartParticipantEvent(DatabaseAccess dba, long protocolRevId, long protocolRevEventId, long eventId, DateFormat dFormat) { //edit: call each time a participant event begins; returns its corresponding "PatEvtId"; have a universal "DateFormat" for formatting SQLite db dates, to set here and everywhere else applicable
+//        if (dba == null || dFormat == null)
+//            return -1; //default for method misuse
+//        ParticipantEvent participantEvent = GetParticipantInfoEntity(dba);
+//        List<Object[]> existingEvents = dba.GetTableData("tParticipantEvent");
+//        long maxId = 0;
+//        for (int i = 1; i < existingEvents.size(); i++) {
+//            for (int j = 0; j < existingEvents.get(i).length; j++) {
+//                if (existingEvents.get(0)[i].equals("PatEventId") && (long)existingEvents.get(i)[i] > maxId)
+//                    maxId = (long)existingEvents.get(i)[i];
+//            }
+//        }
+//        participantEvent.setPatEventId(maxId + 1);
+//        participantEvent.setProtocolRevId(protocolRevId);
+//        participantEvent.setProtocolRevEventId(protocolRevEventId);
+//        participantEvent.setEventId(eventId);
+//        participantEvent.setPatEventDtStart(dFormat.format(Calendar.getInstance().getTime()));
+//        participantEvent.setPatEventResponseCnt(0L);
+//        participantEvent.setPatEventPictureCnt(0L);
+//        dba.open();
+//        dba.InsertParticipantEvent(participantEvent);
+//        dba.close();
+//        return participantEvent.getPatEventId();
+//    }
+
+    //participant event begins;
+    // Create or init new mCurPatEvt
+    // Create new Pat Event in database
+    //
+    // returns its corresponding "PatEvtId";
+    public long StartParticipantEvent() {
+
+//        ParticipantEvent participantEvent = GetParticipantInfoEntity();
+
+        Globals glob = new Globals();
+        String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());       //get datetime now
+        long lNewPatEvtId = 0L;
+
+        if (mCurPatEvt == null)                     //cur event not initiallized?
+            mCurPatEvt = new TParticipantEvent();       //init
+                                                    //set up new event iun database
+        mCurPatEvt.setPatId(mCurPat.getPatId());
+        mCurPatEvt.setDeviceId(mCurDevice.getDeviceId());
+        mCurPatEvt.setProtrevevtid(mlCurProtRevEvtId);
+        mCurPatEvt.setPatEvtDtStart(strDt);
+        mCurPatEvt.setPatEvtDtEnd("");
+        mCurPatEvt.setPatEvtDtUpload("");
+        mCurPatEvt.setPatEvtResponseCnt(0);
+        mCurPatEvt.setPatEvtPictureCnt(0);
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
+        try {
+            dba.open();                                                                 //open
+            lNewPatEvtId = dba.InsertTParticipantEvent(mCurPatEvt);                     //create new database event;
+            mCurPatEvt.setPatEvtId(lNewPatEvtId);                                       //set current PatEvtId
+            dba.close();                                                                //close db
+
+        } catch (NullPointerException e ) {
+            Log.e("AlwaysService:StartParticipantEvent:NPEx", e.toString());
+            //todo handle, try again?
         }
-        participantEvent.setPatEventId(maxId + 1);
-        participantEvent.setProtocolRevId(protocolRevId);
-        participantEvent.setProtocolRevEventId(protocolRevEventId);
-        participantEvent.setEventId(eventId);
-        participantEvent.setPatEventDtStart(dFormat.format(Calendar.getInstance().getTime()));
-        participantEvent.setPatEventResponseCnt(0L);
-        participantEvent.setPatEventPictureCnt(0L);
-        dba.open();
-        dba.InsertParticipantEvent(participantEvent);
-        dba.close();
-        return participantEvent.getPatEventId();
+        return lNewPatEvtId;
     }
+
     public void CommitActivityInfo(long patEvtId, Object entity) { //edit: call each time a participant event activity is committed; set "entity" to a PatEventResponse or a PatEventPicture
         if (entity == null)
             return; //returned for method misuse
@@ -1318,14 +1504,39 @@ public class AlwaysService extends Service {
         }
         return oldEvtCnt;
     }
-    public String EndParticipantEvent(long patEvtId, AppCompatActivity caller, DatabaseAccess dba, DateFormat dFormat) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
-        if (caller == null || dba == null || dFormat == null)
-            return null; //default for method misuse
-        dba.open();
-        dba.MarkParticipantEventEnded(patEvtId, dFormat.format(Calendar.getInstance().getTime()));
-        String path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
-                "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", caller);
-        dba.close();
+//    public String EndParticipantEvent(long patEvtId, AppCompatActivity caller, DatabaseAccess dba, DateFormat dFormat) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
+//        if (caller == null || dba == null || dFormat == null)
+//            return null; //default for method misuse
+//        dba.open();
+//        dba.MarkParticipantEventEnded(patEvtId, dFormat.format(Calendar.getInstance().getTime()));
+//        String path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
+//                "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", caller);
+//        dba.close();
+//        return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
+//    }
+    public String EndParticipantEvent(long patEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
+
+//        AppCompatActivity activity = getApplicationContext().
+        Globals glob = new Globals();
+        String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());       //get datetime now
+        String path = "";
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
+        try {
+            dba.open();
+            dba.MarkParticipantEventEnded(patEvtId, strDt);
+            dba.close();
+
+            AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();
+            path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
+                    "vInnerPatEvt","PatEventImages", "vInnerPatEvtPictures", activity);
+
+        } catch (NullPointerException e ) {
+            Log.e("AlwaysService:StartParticipantEvent:NPEx", e.toString());
+            //todo handle, try again?
+        }
+
+
         return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
     }
 }

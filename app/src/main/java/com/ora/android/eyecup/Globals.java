@@ -16,9 +16,19 @@ public class Globals {
 
 //    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
     public static final boolean APP_DEMO_MODE = true;
-    public static final int APP_DEMO_MODE_MIN_OPEN = 5;
-    public static final int APP_DEMO_MODE_MIN_WARN = 5;
-    public static final int APP_DEMO_MODE_MIN_EXPIRE = 10;
+    public static final int APP_DEMO_MODE_MIN_OPEN = 0;
+    public static final int APP_DEMO_MODE_MIN_WARN = 10;
+    public static final int APP_DEMO_MODE_MIN_EXPIRE = 15;
+
+    public static final int APP_DFLT_DEVICE_ID = 1;
+    public static final String APP_DFLT_DEVICE_APPID = "12345678";
+
+    public static final int APP_DFLT_PAT_ID = 1;
+    public static final int APP_DFLT_PAT_DEPTID = 99;
+    public static final int APP_DFLT_PAT_STUDYID = 999;
+    public static final int APP_DFLT_PAT_LOCID = 999;
+    public static final int APP_DFLT_PAT_NUM = 1;
+    public static final String APP_DFLT_PAT_STUDYPATNUM = "20-99-999-999-0001";
 
     public static final String APP_FILE_PROTOCOLREVISION = "protocolrevision.json";
 
@@ -66,8 +76,8 @@ public class Globals {
     public static final String APP_DIR_DATA_ARCHIVE = "databases/Archive";
     public static final String APP_DIR_DATA_FRESH = "databases/Fresh";
 //    public static final String APP_DATA_DBNAME = "ORADb.db";
-    public static final String APP_DATA_DBNAME = "ORADb_V3.db";
-    public static final String APP_ASSET_DBNAME = "databases/ORADb_V3.db";
+    public static final String APP_DATA_DBNAME = "ORADb_V4.db";
+    public static final String APP_ASSET_DBNAME = "databases/ORADb_V4.db";
 
     public static final int ACTIVITY_TYPE_INSTRUCTION = 1;
     public static final int ACTIVITY_TYPE_QUESTION = 2;
@@ -91,6 +101,7 @@ public class Globals {
     public static final int DT_FMT_FULL_FILENAME = 2;
     public static final int DT_FMT_DATE = 3;
     public static final int DT_FMT_TIME = 4;
+    public static final int DT_FMT_FULL_ACTIVITY = 5;
 
     public Date getDate() {
         return Calendar.getInstance().getTime();
@@ -147,6 +158,9 @@ public class Globals {
                 break;
             case DT_FMT_FULL_FILENAME:
                 fmtDt = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+                break;
+            case DT_FMT_FULL_ACTIVITY:
+                fmtDt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");        ////2020-01-18 19:38:00
                 break;
             case DT_FMT_DATE:
                 fmtDt = new SimpleDateFormat("yyyy-MM-dd");
