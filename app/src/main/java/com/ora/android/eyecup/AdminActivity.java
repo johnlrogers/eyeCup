@@ -17,7 +17,6 @@ public class AdminActivity extends AppCompatActivity {
     private EditText tbxSPNDeptId;
     private EditText tbxSPNStudyId;
     private EditText tbxSPNLocId;
-    private EditText tbxSPNSubjectId;
     private EditText tbxPassword;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,16 +28,14 @@ public class AdminActivity extends AppCompatActivity {
         tbxSPNDeptId = global.<EditText>GetView(R.id.tbxSPNDeptId);
         tbxSPNStudyId = global.<EditText>GetView(R.id.tbxSPNStudyId);
         tbxSPNLocId = global.<EditText>GetView(R.id.tbxSPNLocId);
-        tbxSPNSubjectId = global.<EditText>GetView(R.id.tbxSPNSubjectId);
         tbxPassword = global.<EditText>GetView(R.id.tbxPassword);
         if (patient != null) {
-            tbxPatNumber.setText(patient.patNumber);
             Integer[] spnComponents = patient.GetSPNComponents();
             tbxSPNYearId.setText(spnComponents[0]);
             tbxSPNDeptId.setText(spnComponents[1]);
             tbxSPNStudyId.setText(spnComponents[2]);
             tbxSPNLocId.setText(spnComponents[3]);
-            tbxSPNSubjectId.setText(spnComponents[4]);
+            tbxPatNumber.setText(spnComponents[4]);
             tbxPassword.setText(patient.password);
         }
         else {
@@ -50,13 +47,16 @@ public class AdminActivity extends AppCompatActivity {
     public void OnClick(View view) {
         boolean success = false;
         if (patient != null) {
-            if (!patient.patNumber.equals(tbxPatNumber.getText().toString()) || !patient.studyPatNumber.equals(BuildSPN())
+            Integer[] spnComponents = patient.GetSPNComponents();
+            Integer[] uiSpnComponents = patient.GetSPNComponents();
+            if (!spnComponents[4].equals(tbxPatNumber.getText().toString()) || spnComponents[0] != uiSpnComponents[0] ||
+                    spnComponents[1] != uiSpnComponents[1] || spnComponents[2] != uiSpnComponents[2] ||
+                    spnComponents[3] != uiSpnComponents[3] || spnComponents[4] != uiSpnComponents[4]
                     || !patient.password.equals(tbxPassword.getText().toString()) && NewPatientIsValid())
                 success = SetPatient();
         }
         else if (NewPatientIsValid())
             success = SetPatient();
-
         //todo Warning:(57, 9) 'if' statement has empty body
         if (success)
             ; //edit: this occurs for successful change of patient info
@@ -65,8 +65,7 @@ public class AdminActivity extends AppCompatActivity {
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());
         boolean success = false;
         Patient p = new Patient();
-        p.patNumber = tbxPatNumber.getText().toString();
-        p.studyPatNumber = BuildSPN();
+        p.studyPatNumbers = BuildSPN();
         p.password = tbxPassword.getText().toString();
         try {
             dba.open();
@@ -75,7 +74,8 @@ public class AdminActivity extends AppCompatActivity {
             //todo handle
         }
         try {
-            success = dba.SetParticipantInfo(patient == null, patient.patNumber, patient.studyPatNumber, patient.password);
+            success = dba.SetParticipantInfo(patient == null, patient.GetSPNComponents()[4].toString(),
+                    patient.studyPatNumbers, patient.password);
         } catch (NullPointerException e){
             Log.e("AdminActivity:SetPatient.SetParticipantInfo:NPEx", e.toString());
             //todo handle
@@ -99,41 +99,42 @@ public class AdminActivity extends AppCompatActivity {
             return null;
         Patient pat = new Patient();
         for (int i = 0; i < patInfo[0].length; i++) {
-            if ((patInfo[0][i]).equals("PatNumber"))
-                pat.patNumber = patInfo[1][i].toString();
-            else if ((patInfo[0][i]).equals("StudyPatNumber"))
-                pat.studyPatNumber = patInfo[1][i].toString();
+            if ((patInfo[0][i]).equals("StudyPatNumber"))
+                pat.studyPatNumbers = patInfo[1][i].toString();
             else if ((patInfo[0][i]).equals("Password"))
                 pat.password = patInfo[1][i].toString();
         }
         return pat;
     }
     private boolean NewPatientIsValid() {
-        //todo primitive type?
-        Integer patNumInt;
-        Integer spnYearId;
+        int patNumber;
+        int spnYearId;
+        int spnDeptId;
+        int spnStudyId;
+        int spnLocId;
         String pass = tbxPassword.getText().toString();
         try {
-            patNumInt = Integer.parseInt(tbxPatNumber.getText().toString());
+            patNumber = Integer.parseInt(tbxPatNumber.getText().toString());
             spnYearId = Integer.parseInt(tbxSPNYearId.getText().toString());
-            Integer.parseInt(tbxSPNDeptId.getText().toString());
-            Integer.parseInt(tbxSPNStudyId.getText().toString());
-            Integer.parseInt(tbxSPNLocId.getText().toString());
-            Integer.parseInt(tbxSPNSubjectId.getText().toString());
+            spnDeptId = Integer.parseInt(tbxSPNDeptId.getText().toString());
+            spnStudyId = Integer.parseInt(tbxSPNStudyId.getText().toString());
+            spnLocId = Integer.parseInt(tbxSPNLocId.getText().toString());
         }
         catch (Exception e) {
             Log.e("AdminActivity:NewPatientIsValid:NPEx", e.toString());
             //todo handle
             return false;
         }
-        return patNumInt.toString().length() != 4 || spnYearId < 0 || spnYearId > 99 || pass.length() < 7; //all patient info constraints set here
+        return patNumber > -1 && patNumber < 10000 && spnYearId > -1 && spnYearId < 100 && spnDeptId > -1 && spnDeptId < 1000 &&
+            spnStudyId > -1 && spnStudyId < 10000 && spnLocId > -1 && spnLocId < 1000 && pass.length() > 6; //set all patient info constraints here
     }
     private String BuildSPN() {
         if (NewPatientIsValid())
             return BuildSPNExplicitly(Integer.parseInt(tbxSPNYearId.getText().toString()),
                     Integer.parseInt(tbxSPNDeptId.getText().toString()),
-                    Integer.parseInt(tbxSPNStudyId.getText().toString()), Integer.parseInt(tbxSPNLocId.getText().toString()),
-                    Integer.parseInt(tbxSPNSubjectId.getText().toString()));
+                    Integer.parseInt(tbxSPNStudyId.getText().toString()),
+                    Integer.parseInt(tbxSPNLocId.getText().toString()),
+                    Integer.parseInt(tbxPatNumber.getText().toString()));
         return null; //default for method misuse
     }
     private String BuildSPNExplicitly(Integer yearId, Integer deptId, Integer studyId, Integer locId, Integer subjectId) {
@@ -143,15 +144,14 @@ public class AdminActivity extends AppCompatActivity {
                 + subjectId.toString();
     }
     private class Patient {
-        public String patNumber = "";
-        public String studyPatNumber = "";
+        public String studyPatNumbers = "";
         public String password = "";
         public Patient() { }
         public Integer[] GetSPNComponents() {
             Integer[] components = new Integer[5];
-            if (studyPatNumber.length() != 0) {
+            if (studyPatNumbers.length() != 0) {
                 try {
-                    String[] spnComponents = studyPatNumber.toString().split("-");
+                    String[] spnComponents = studyPatNumbers.split("-");
                     for (int i = 0; i < spnComponents.length; i++)
                         components[i] = Integer.parseInt(spnComponents[i]);
                 }

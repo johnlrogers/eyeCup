@@ -43,21 +43,21 @@ public class LoginDataSource {
             }
 
             //todo logic next few lines needs looked at
-            String strPatNum;
+            String strPatNum = "";
             try {
                 strPatNum = patNum.toString();
             } catch (NullPointerException e) {
                 Log.e("LoginDS:patNum.toString:NPEx", e.toString());
                 //todo handle
             }
-            LoggedInUser patient = new LoggedInUser(patNum.toString(), "Patient " + patNum.toString());
+            LoggedInUser patient = new LoggedInUser(patNum.toString(), "Patient " + strPatNum);
             LoggedInUser administrator = new LoggedInUser("Admin", "Administrator");
 
             //todo warning Warning:(41, 17) Condition 'username.equals(patNum.toString()) && password.equals(dbPass)' is always 'false'
             //todo warning Warning:(41, 55) Condition 'password.equals(dbPass)' is always 'false' when reached
             if (username.equals(patNum.toString()) && password.equals(dbPass)) {
 //                AlwaysService.getmCurrentService().mState = Globals.SVC_EVT_STATE_RUN;        //Participant logged in
-                return new Result.Success<>(patient);                                           //edit: start the event
+                    return new Result.Success<>(patient);
             }
 
             if (username.equals("Admin") && password.equals("123456")) { //edit: set admin username and password here

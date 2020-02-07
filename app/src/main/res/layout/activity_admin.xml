@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
     <EditText
         android:id="@+id/tbxPatNumber"
@@ -16,21 +16,21 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.908" />
+        app:layout_constraintVertical_bias="0.496" />
 
     <EditText
         android:id="@+id/tbxSPNYearId"
-        android:layout_width="68dp"
-        android:layout_height="51dp"
+        android:layout_width="127dp"
+        android:layout_height="45dp"
         android:layout_marginTop="12dp"
         android:ems="10"
         android:inputType="textPersonName"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.029"
+        app:layout_constraintHorizontal_bias="0.711"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tbxPatNumber"
-        app:layout_constraintVertical_bias="0.245" />
+        app:layout_constraintVertical_bias="0.07" />
 
     <EditText
         android:id="@+id/tbxPassword"
@@ -41,9 +41,10 @@
         android:inputType="textPersonName"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.492"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tbxSPNYearId"
-        app:layout_constraintVertical_bias="0.201" />
+        app:layout_constraintVertical_bias="0.7" />
 
     <TextView
         android:id="@+id/lblPatNumber"
@@ -60,13 +61,13 @@
         android:id="@+id/lblStudyPatNumber"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Study Patient Number (YearId-DeptId-StudyId-LocId-SubjectId)"
+        android:text="Study Patient Numbers"
         app:layout_constraintBottom_toTopOf="@+id/tbxSPNYearId"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tbxPatNumber"
-        app:layout_constraintVertical_bias="0.818" />
+        app:layout_constraintVertical_bias="0.678" />
 
     <TextView
         android:id="@+id/lblPassword"
@@ -77,7 +78,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tbxSPNYearId"
-        app:layout_constraintVertical_bias="0.803" />
+        app:layout_constraintVertical_bias="0.925" />
 
     <Button
         android:id="@+id/btnSave"
@@ -88,7 +89,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tbxPassword" />
+        app:layout_constraintTop_toBottomOf="@+id/tbxPassword"
+        app:layout_constraintVertical_bias="0.745" />
 
     <TextView
         android:id="@+id/lblPatient"
@@ -100,63 +102,97 @@
         android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@+id/lblPatNumber"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.633" />
+        app:layout_constraintVertical_bias="0.106" />
 
     <EditText
         android:id="@+id/tbxSPNDeptId"
-        android:layout_width="61dp"
-        android:layout_height="52dp"
+        android:layout_width="125dp"
+        android:layout_height="51dp"
         android:ems="10"
         android:inputType="textPersonName"
-        app:layout_constraintBottom_toTopOf="@+id/lblPassword"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.063"
-        app:layout_constraintStart_toEndOf="@+id/tbxSPNYearId"
-        app:layout_constraintTop_toBottomOf="@+id/lblStudyPatNumber"
-        app:layout_constraintVertical_bias="0.294" />
+        app:layout_constraintHorizontal_bias="0.706"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tbxSPNYearId"
+        app:layout_constraintVertical_bias="0.036" />
 
     <EditText
         android:id="@+id/tbxSPNStudyId"
-        android:layout_width="63dp"
+        android:layout_width="122dp"
         android:layout_height="53dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="13dp"
         android:ems="10"
         android:inputType="textPersonName"
-        app:layout_constraintBottom_toTopOf="@+id/lblPassword"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toEndOf="@+id/tbxSPNDeptId"
-        app:layout_constraintTop_toBottomOf="@+id/lblStudyPatNumber"
-        app:layout_constraintVertical_bias="0.078" />
+        app:layout_constraintHorizontal_bias="0.698"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tbxSPNDeptId"
+        app:layout_constraintVertical_bias="0.002" />
 
     <EditText
         android:id="@+id/tbxSPNLocId"
-        android:layout_width="72dp"
-        android:layout_height="53dp"
+        android:layout_width="123dp"
+        android:layout_height="49dp"
         android:ems="10"
         android:inputType="textPersonName"
-        app:layout_constraintBottom_toTopOf="@+id/lblPassword"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.158"
-        app:layout_constraintStart_toEndOf="@+id/tbxSPNStudyId"
-        app:layout_constraintTop_toBottomOf="@+id/lblStudyPatNumber"
-        app:layout_constraintVertical_bias="0.32" />
+        app:layout_constraintHorizontal_bias="0.697"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tbxSPNStudyId"
+        app:layout_constraintVertical_bias="0.052" />
 
-    <EditText
-        android:id="@+id/tbxSPNSubjectId"
-        android:layout_width="67dp"
-        android:layout_height="55dp"
-        android:layout_marginTop="16dp"
-        android:ems="10"
-        android:inputType="textPersonName"
-        app:layout_constraintBottom_toTopOf="@+id/lblPassword"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/tbxSPNLocId"
+    <TextView
+        android:id="@+id/lblYearId"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/admin_year_prompt"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/tbxSPNYearId"
+        app:layout_constraintHorizontal_bias="0.701"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/lblStudyPatNumber"
-        app:layout_constraintVertical_bias="0.0" />
+        app:layout_constraintVertical_bias="0.059" />
+
+    <TextView
+        android:id="@+id/lblDeptId"
+        android:layout_width="102dp"
+        android:layout_height="24dp"
+        android:text="Dept Number"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/tbxSPNDeptId"
+        app:layout_constraintHorizontal_bias="0.647"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/lblYearId"
+        app:layout_constraintVertical_bias="0.081" />
+
+    <TextView
+        android:id="@+id/lblStudyId"
+        android:layout_width="106dp"
+        android:layout_height="28dp"
+        android:text="@string/admin_study_prompt"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/tbxSPNStudyId"
+        app:layout_constraintHorizontal_bias="0.647"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/lblYearId"
+        app:layout_constraintVertical_bias="0.218" />
+
+    <TextView
+        android:id="@+id/lblLocId"
+        android:layout_width="158dp"
+        android:layout_height="37dp"
+        android:text="@string/admin_location_prompt"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/tbxSPNStudyId"
+        app:layout_constraintHorizontal_bias="0.662"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/lblYearId"
+        app:layout_constraintVertical_bias="0.373" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
