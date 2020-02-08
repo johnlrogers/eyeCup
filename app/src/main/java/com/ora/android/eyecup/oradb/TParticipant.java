@@ -4,6 +4,7 @@ public class TParticipant {
 
     private long PatId;
 
+    private long PatYearId;
     private long PatDeptId;
     private long PatStudyId;
     private long PatLocationId;
@@ -17,6 +18,14 @@ public class TParticipant {
 
     public void setPatId(long PatId){
         this.PatId=PatId;
+    }
+
+    public long getPatYearId(){
+        return PatYearId;
+    }
+
+    public void setPatYearId(long PatYearId){
+        this.PatYearId=PatYearId;
     }
 
     public long getPatDeptId(){

@@ -9,7 +9,7 @@ public class TParticipantEventActivity {
     private int ResponseVal;
     private String ResponseTxt;
     private String ResponsePath;
-    private String PatEvtDtUpload;
+    private String PatEvtActDt;
 
     private long ActId;
     private long PatEvtActRspId;
@@ -74,11 +74,11 @@ public class TParticipantEventActivity {
         this.ResponsePath=ResponsePath;
     }
 
-    public String getPatEvtDtUpload(){
-        return PatEvtDtUpload;
+    public String getPatEvtActDt(){
+        return PatEvtActDt;
     }
 
-    public void setPatEvtDtUpload(String PatEvtDtUpload){
-        this.PatEvtDtUpload=PatEvtDtUpload;
+    public void setPatEvtActDt(String PatEvtActDt){
+        this.PatEvtActDt=PatEvtActDt;
     }
 }

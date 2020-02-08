@@ -4,6 +4,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.os.AsyncTask;
 import android.util.Log;
 
 import com.google.gson.JsonArray;
@@ -23,27 +24,19 @@ import com.ora.android.eyecup.oradb.TParticipantEventActivity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-
-import androidx.appcompat.app.AppCompatActivity;
 
 import static android.content.Context.MODE_PRIVATE;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
@@ -293,6 +286,43 @@ public class DatabaseAccess {
         return lNextId; //returned for method misuse
     }
 
+    public boolean UpdateTParticipantEventDtEnd(long patEvtId) {
+        String colName = "PatEvtDtEnd";
+        Globals glob = new Globals();
+        String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
+        try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strDt + "' WHERE PatEvtId = " + patEvtId + ";"); }
+        catch (Exception e) {
+            Log.e("DA:UpdateTParticipantEventDtEnd:Ex", e.toString());
+            //todo handle
+            return false;
+        }
+        return true;
+    }
+
+    public boolean UpdateTParticipantEventDtUpload(long patEvtId) {
+        String colName = "PatEvtDtUploade";
+        Globals glob = new Globals();
+        String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
+        try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strDt + "' WHERE PatEvtId = " + patEvtId + ";"); }
+        catch (Exception e) {
+            Log.e("DA:UpdateTParticipantEventDtUpload:Ex", e.toString());
+            //todo handle
+            return false;
+        }
+        return true;
+    }
+
+    public boolean UpdateTParticipantEventFileName(long patEvtId, String strFilename) {
+        String colName = "PatEvtFileName";
+        try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strFilename + "' WHERE PatEvtId = " + patEvtId + ";"); }
+        catch (Exception e) {
+            Log.e("DA:UpdateTParticipantEventFileName:Ex", e.toString());
+            //todo handle
+            return false;
+        }
+        return true;
+    }
+
     public void UpdateParticipantEventChildCnt(long patEvtId, boolean isResponse, int count) { //edit: call when child count is updated //set "isResponse" to "false" for picture count
         String colName = "PatEvtResponseCnt";
         if (!isResponse)
@@ -338,67 +368,76 @@ public class DatabaseAccess {
         }
     }
 
-    public String TrySendJSONToServer(String filePath) throws Exception {
+//    public String TrySendJSONToServer(String filePath) throws Exception {
+//
+//        String attachmentName = filePath.substring(filePath.lastIndexOf("/") + 1);
+//        String attachmentFileName = attachmentName + ".json";
+//        String crlf = "\r\n";
+//        String twoHyphens = "--";
+//        String boundary =  "*****";
+//
+//        HttpURLConnection httpUrlConnection = null;
+//        URL url = new URL("http://mattpestillo.com"); //edit: change to destination url
+//        httpUrlConnection = (HttpURLConnection) url.openConnection();
+//        httpUrlConnection.setUseCaches(false);
+//        httpUrlConnection.setDoOutput(true);
+//
+//        httpUrlConnection.setRequestMethod("POST");
+//        httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
+//        httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
+//        httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+//
+//        DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
+//
+//        List<Byte> bytesList = new ArrayList<Byte>();
+//        try (InputStream in = new FileInputStream(filePath)) {
+//            byte[] buf = new byte[1024];
+//            while (in.read(buf) > 0) {
+//                for (int i = 0; i < buf.length; i++)
+//                    bytesList.add(buf[i]);
+//            }
+//        }
+//        byte[] bytes = new byte[bytesList.size()];
+//        for (int i = 0; i < bytes.length; i++)
+//            bytes[i] = bytesList.get(i);
+//
+//        request.writeBytes(twoHyphens + boundary + crlf);
+//        request.writeBytes("Content-Disposition: form-data; name=\"" + attachmentName + "\";filename=\""
+//                + attachmentFileName + "\"" + crlf);
+//        request.writeBytes(crlf);
+//        request.write(bytes);
+//
+//        request.writeBytes(crlf);
+//        request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
+//
+//        request.flush();
+//        request.close();
+//
+//        InputStream responseStream = new BufferedInputStream(httpUrlConnection.getInputStream());
+//        BufferedReader responseStreamReader = new BufferedReader(new InputStreamReader(responseStream));
+//
+//        String line = "";
+//        StringBuilder stringBuilder = new StringBuilder();
+//
+//        while ((line = responseStreamReader.readLine()) != null) {
+//            stringBuilder.append(line).append("\n");
+//        }
+//        responseStreamReader.close();
+//
+//        responseStream.close();
+//        httpUrlConnection.disconnect();
+//
+//        return stringBuilder.toString();
+//    }
 
-        String attachmentName = filePath.substring(filePath.lastIndexOf("/") + 1);
-        String attachmentFileName = attachmentName + ".json";
-        String crlf = "\r\n";
-        String twoHyphens = "--";
-        String boundary =  "*****";
+    public String TrySendJSONToServer(String filePath) { //returns null if unsuccessful
 
-        HttpURLConnection httpUrlConnection = null;
-        URL url = new URL("http://mattpestillo.com"); //edit: change to destination url
-        httpUrlConnection = (HttpURLConnection) url.openConnection();
-        httpUrlConnection.setUseCaches(false);
-        httpUrlConnection.setDoOutput(true);
-
-        httpUrlConnection.setRequestMethod("POST");
-        httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
-        httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
-        httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
-
-        DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
-
-        List<Byte> bytesList = new ArrayList<Byte>();
-        try (InputStream in = new FileInputStream(filePath)) {
-            byte[] buf = new byte[1024];
-            while (in.read(buf) > 0) {
-                for (int i = 0; i < buf.length; i++)
-                    bytesList.add(buf[i]);
-            }
-        }
-        byte[] bytes = new byte[bytesList.size()];
-        for (int i = 0; i < bytes.length; i++)
-            bytes[i] = bytesList.get(i);
-
-        request.writeBytes(twoHyphens + boundary + crlf);
-        request.writeBytes("Content-Disposition: form-data; name=\"" + attachmentName + "\";filename=\""
-                + attachmentFileName + "\"" + crlf);
-        request.writeBytes(crlf);
-        request.write(bytes);
-
-        request.writeBytes(crlf);
-        request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
-
-        request.flush();
-        request.close();
-
-        InputStream responseStream = new BufferedInputStream(httpUrlConnection.getInputStream());
-        BufferedReader responseStreamReader = new BufferedReader(new InputStreamReader(responseStream));
-
-        String line = "";
-        StringBuilder stringBuilder = new StringBuilder();
-
-        while ((line = responseStreamReader.readLine()) != null) {
-            stringBuilder.append(line).append("\n");
-        }
-        responseStreamReader.close();
-
-        responseStream.close();
-        httpUrlConnection.disconnect();
-
-        return stringBuilder.toString();
+        String response = "";
+        AsyncThread asyncThread = new AsyncThread();
+        AsyncTask<String, Void, String> task = asyncThread.execute(filePath);
+        return response; //edit: get and return response synchronously
     }
+
     public void MarkParticipantEventUploaded(ParticipantEvent newEvent) { //edit: call when uploaded
         if (newEvent == null)
             return; //returned for method misuse
@@ -581,24 +620,34 @@ public class DatabaseAccess {
         return value;
     }
 
-    public String CreateJSON(String outerObjectDbView, String innerObjectsName, String innerObjectsDbView, String innerImagesName, //create applicable views in the DB browser for this method to call, which if they exist, will format the JSON file based on the content of that view (and otherwise save nothing to the file) and save it to the returned internal storage path
-                             String innerImagesDbView, AppCompatActivity caller) {
+    public String CreateJSON(String outerObjectDbView,
+                             String innerObjectsName,
+                             String innerObjectsDbView,
+                             String innerImagesName, //create applicable views in the DB browser for this method to call, which if they exist, will format the JSON file based on the content of that view (and otherwise save nothing to the file) and save it to the returned internal storage path
+                             String innerImagesDbView,
+                             long lPatEvtId,
+                             Context ctx) {
 
+        JSONObject resultObj = new JSONObject();
         String fileName = ""; //default for method misuse
+        String strSQL = "";
+
         if (outerObjectDbView == null || innerObjectsName == null || innerObjectsDbView == null || innerImagesName == null
-                || innerImagesDbView == null || caller == null)
+                || innerImagesDbView == null || ctx == null)
             return fileName;
 
-        try { c = db.rawQuery("SELECT * FROM " + outerObjectDbView + " LIMIT 1;", null); }
+//        try { c = db.rawQuery("SELECT * FROM " + outerObjectDbView + " LIMIT 1;", null); }
+        strSQL = "SELECT * FROM " + outerObjectDbView;
+        strSQL = strSQL + " WHERE PatEventId = " + lPatEvtId;
+        strSQL = strSQL + " ORDER BY PatEventId;";
+        try { c = db.rawQuery(strSQL, null); }
         catch (Exception e) {
-            Log.e("DA:CreateJSON.rawQuery:Ex", e.toString());
+            Log.e("DA:CreateJSON.outerObjectDbView:Ex", e.toString());
             //todo handle
             return fileName;
         }
-
-        JSONObject resultObj = new JSONObject();
         c.moveToFirst();
-        for (int i = 0; i < c.getColumnCount(); i++) {
+        for (int i = 0; i < c.getColumnCount(); i++) {                  //get all columns
             try { resultObj.put(c.getColumnName(i), CursorGetObj(i)); }
             catch (Exception e) {
                 Log.e("DA:CreateJSON.put:IOEx", e.toString());
@@ -606,62 +655,99 @@ public class DatabaseAccess {
             }
         }
         c.close();
-        try { c = db.rawQuery("SELECT * FROM " + innerObjectsDbView + ";", null); }
+
+//        try { c = db.rawQuery("SELECT * FROM " + innerObjectsDbView + ";", null); }
+        strSQL = "SELECT * FROM " + innerObjectsDbView;
+        strSQL = strSQL + " WHERE PatEvtId = " + lPatEvtId;
+        strSQL = strSQL + " ORDER BY PatEvtId, ProtocolRevEventActivityId;";
+        try { c = db.rawQuery(strSQL, null); }
         catch (Exception e) {
-            Log.e("DA:CreateJSON.rawQuery:IOEx", e.toString());
+            Log.e("DA:CreateJSON.innerObjectsDbView:IOEx", e.toString());
             //todo handle
             return fileName;
         }
-
         //todo Warning:(459, 9) Variable is already assigned to this value
         resultObj = CursorGetInnerJSON(resultObj, innerObjectsName);
         c.close();
-        try { c = db.rawQuery("SELECT * FROM " + innerImagesDbView + ";", null); }
+
+//        try { c = db.rawQuery("SELECT * FROM " + innerImagesDbView + ";", null); }
+        strSQL = "SELECT * FROM " + innerImagesDbView;
+        strSQL = strSQL + " WHERE PatEvtId = " + lPatEvtId;
+        strSQL = strSQL + " ORDER BY PatEvtId, ProtocolRevEventActivityId;";
+        try { c = db.rawQuery(strSQL, null); }
         catch (Exception e) {
-            Log.e("DA:CreateJSON.rawQuery:IOEx", e.toString());
+            Log.e("DA:CreateJSON.innerImagesDbView:IOEx", e.toString());
             //todo handle
             return fileName;
         }
-
         //todo Warning:(463, 9) Variable is already assigned to this value
         resultObj = CursorGetInnerJSON(resultObj, innerImagesName);
         c.close();
-        String relFileName = "Output"; //output JSON file name (timestamp will be appended automatically)
+
+        Globals glob = new Globals();
+        Date dt = Calendar.getInstance().getTime();
+        String strDt = glob.GetDateStr(DT_FMT_FULL_FILENAME,dt);
+
+        String strDir = APP_DIR_PARTICIPANTS + "/" + GetStudyPatNumber() + APP_DIR_PARTICIPANT_EVENTS;
+        String strFile = GetStudyPatNumber();
+        strFile = strFile + "_" + strDt;
+        strFile = strFile + ".json";
+        String relFileName = strFile;
+
+        File fNewFile = new File(ctx.getExternalFilesDir(strDir), strFile);
+        String strNewFile = fNewFile.getAbsolutePath();
+        File fNewFile2 = new File(ctx.getFilesDir(), strFile);
+        String strNewFile2 = fNewFile2.getAbsolutePath();
+
+//        String relFileName = GetStudyPatNumber();       //output JSON file name (timestamp will be appended automatically)
+//        String relFileName = GetStudyPatNumber() + "_" + strDt + ".json";       //output JSON file name
+//        String relFileName = GetStudyPatNumber() + "_" + strDt + ".json";       //output JSON file name
         try {
-            FileOutputStream fileOutputStream = caller.openFileOutput(relFileName + ".json", MODE_PRIVATE);
+//            FileOutputStream fileOutputStream = ctx.openFileOutput(relFileName + ".json", MODE_PRIVATE);
+            FileOutputStream fileOutputStream = ctx.openFileOutput(relFileName , MODE_PRIVATE);
             fileOutputStream.write(resultObj.toString(4).getBytes());
             fileOutputStream.close();
         }
         catch (Exception e) {
+            Log.e("DA:CreateJSON:fileOutputStream:Ex", e.toString());
             //todo handle
         }
-//        fileName = FormatFileName("files/Patient_Identifier/Events/" + relFileName, ".json",
-//        fileName = FormatFileName("files/" + GetStudyPatNumber() + "_Patient_Identifier/Events/" + relFileName, ".json",
 
-        //camera location
-        // String strDir = APP_DIR_PARTICIPANTS + "/" + activity.getPatNumber() + "/Pics";
-        // String strFile = activity.getPatNumber();
-        // strFile = strFile + "_" + mstrPicCode;
-        // strFile = strFile + "_" + glob.GetDateStr(DT_FMT_FULL_FILENAME,dt);
-        // //toto full picture file name
-        // strFile = strFile + ".jpg";
+        String spn = GetStudyPatNumber();
+        File patsFolder = new File(FormatFileName(APP_DIR_PARTICIPANTS, "", null));
+        if (!patsFolder.isDirectory())
+            patsFolder.mkdir();
+        File patFolder = new File(FormatFileName(APP_DIR_PARTICIPANTS + "/" + spn, "", null));
+        if (!patFolder.isDirectory())
+            patFolder.mkdir();
+        File evtsFolder = new File(FormatFileName(APP_DIR_PARTICIPANTS + "/" + spn + "/Events", "", null));
+        if (!evtsFolder.isDirectory())
+            evtsFolder.mkdir();
 
-        // File fNewFile = new File(activity.getExternalFilesDir(strDir), strFile);
-//        fileName = FormatFileName("files/" + GetStudyPatNumber() + "/Events/" + relFileName, ".json", new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
-//        try { MoveTo(FormatFileName("files/" + relFileName, ".json", null), fileName, false); }
-        Globals glob = new Globals();
-        Date dt = Calendar.getInstance().getTime();
-         String strDir = APP_DIR_PARTICIPANTS + "/" + GetStudyPatNumber() + APP_DIR_PARTICIPANT_EVENTS;
-         String strFile = GetStudyPatNumber();
-         strFile = strFile + "_" + glob.GetDateStr(DT_FMT_FULL_FILENAME,dt);
-         //toto full picture file name
-//         strFile = strFile + ".json";
-        fileName = FormatFileName(APP_DIR_PARTICIPANTS + "/" + GetStudyPatNumber() + APP_DIR_PARTICIPANT_EVENTS + relFileName, ".json", new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
-        try { MoveTo(FormatFileName(APP_DIR_PARTICIPANTS + "/" + relFileName, ".json", null), fileName, false); }
+        try { MoveTo("files/" + relFileName, strNewFile, true); }
         catch (Exception e) {
+            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
             //todo handle
         }
-        return fileName;
+        try { MoveTo("files/" + relFileName, strNewFile2, true); }
+        catch (Exception e) {
+            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
+            //todo handle
+        }
+
+        fileName = FormatFileName(APP_DIR_PARTICIPANTS + "/" + spn + "/Events/" + relFileName,".json",
+                                new SimpleDateFormat("yyyy-MM-dd_hh-mm-ss"));
+
+//        fileName = fNewFile.getAbsolutePath();
+//        fileName = relFileName;
+//        try { MoveTo(FormatFileName(APP_DIR_PARTICIPANTS + "/" + relFileName, ".json", null), fileName, false); }
+//        try { MoveTo(FormatFileName("files/" + relFileName, ".json", null), fileName, false); }
+//        try { MoveTo(relFileName, fileName, false); }
+//        catch (Exception e) {
+//            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
+//            //todo handle
+//        }
+        return strNewFile2;
     }
 
     public void SavePatEvtActivityResponse(TParticipantEventActivity actResp) {

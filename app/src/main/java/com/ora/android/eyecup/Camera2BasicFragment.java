@@ -330,6 +330,7 @@ public class Camera2BasicFragment extends Fragment
                 Log.e("C2BF:OnImageAvailable.activity.getPatNumber:NPEx", e.toString());
                 //todo handle
             }
+
             String strDir = APP_DIR_PARTICIPANTS + "/" + activity.getPatNumber() + APP_DIR_PARTICIPANT_PICS;
             String strFile = activity.getPatNumber();
             strFile = strFile + "_" + mstrPicCode;

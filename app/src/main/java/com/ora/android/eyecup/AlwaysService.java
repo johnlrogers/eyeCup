@@ -29,6 +29,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -158,6 +160,8 @@ public class AlwaysService extends Service {
         GetDeviceFromDb();                      //get participant form database
         GetPatFromDb();                         //get participant form database
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
+
+        UploadPendingData();                  //Upload data not uplpoaded
 
         restartForeground();                    //start service if not running
         mCurrentService = this;
@@ -595,7 +599,6 @@ public class AlwaysService extends Service {
         return true;
     }
 
-
     /* Get the current participant from the database */
     private boolean GetPatFromDb() {
 
@@ -607,6 +610,7 @@ public class AlwaysService extends Service {
             while (crs.moveToNext()) {                                                  //Iterate Cursor
                                                                                             //set current Participant
                 mCurPat.setPatId(crs.getLong(crs.getColumnIndex("PatId")));             //PatId
+                mCurPat.setPatYearId(crs.getLong(crs.getColumnIndex("PatYearId")));     //YearId
                 mCurPat.setPatDeptId(crs.getLong(crs.getColumnIndex("PatDeptId")));     //DeptId
                 mCurPat.setPatStudyId(crs.getLong(crs.getColumnIndex("PatStudyId")));   //StudyId
                 mCurPat.setPatLocationId(crs.getLong(crs.getColumnIndex("PatLocationId")));     //LocationId
@@ -787,6 +791,23 @@ public class AlwaysService extends Service {
         return true;
     }
 
+    private void UploadPendingData()
+    {
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            dba.open();                                                                 //open db
+            String strQry = "SELECT PatEvtId FROM tParticipantEvent WHERE PatEvtDtUpload = ''";                                    //set SQL
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Cursor
+                UploadParticipantEvent(crs.getColumnIndex("PatEvtId"));
+            }
+            crs.close();
+            dba.close();
+
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:UploadPendingData:NPEx", e.toString());
+        }
+    }
     /**
      * initialize directory structure
      */
@@ -799,6 +820,7 @@ public class AlwaysService extends Service {
         String str;
         byte [] sBytes;
 
+//        fFile = new File(ctx.getExternalFilesDir(APP_DIR_PROTOCOL), "Readme.dat");
         fFile = new File(ctx.getExternalFilesDir(APP_DIR_PROTOCOL), "Readme.dat");
         try {
             if (!fFile.exists()) {
@@ -1380,6 +1402,7 @@ public class AlwaysService extends Service {
         mCurPatEvt.setPatEvtDtStart(strDt);
         mCurPatEvt.setPatEvtDtEnd("");
         mCurPatEvt.setPatEvtDtUpload("");
+        mCurPatEvt.setPatEvtFileName("");
         mCurPatEvt.setPatEvtResponseCnt(0);
         mCurPatEvt.setPatEvtPictureCnt(0);
 
@@ -1448,6 +1471,11 @@ public class AlwaysService extends Service {
         return oldEvtCnt;
     }
 
+    public boolean UploadParticipantEvent(long patEvtId) {
+
+        return true;
+    }
+
     public String EndParticipantEvent(long patEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
 
         Globals glob = new Globals();
@@ -1462,17 +1490,37 @@ public class AlwaysService extends Service {
 
             AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();      //get activity for context
                                                                                     //create JSON output
-            path = dba.CreateJSON("vOuterPatEvt", "PatEventResponses",
-                    "vInnerPatEvt","PatEventImages", "vInnerPatEvtImages", activity);
+//            path = dba.CreateJSON("vOuterPatEvt",
+//                    "PatEventResponses",
+//                    "vInnerPatEvt",
+//                    "PatEventImages",
+//                    "vInnerPatEvtImages",
+//                    activity);
+            path = dba.CreateJSON("vOuterPatEvtAll",
+                    "PatEventResponses",
+                    "vInnerPatEvtAll",
+                    "PatEventImages",
+                    "vInnerPatEvtImagesAll",
+                    patEvtId,
+                    getApplicationContext());
+
+            //todo *** update file name in tParticipantEvent
+            if (!path.equals("")) {
+                Path p = Paths.get(path);
+                String strFile = p.getFileName().toString();
+                dba.UpdateTParticipantEventFileName(patEvtId, strFile);
+            }
 
             jsonSendResponse = dba.TrySendJSONToServer(path);                       //send JSON
-            dba.close();
+//            dba.close();
 
         } catch (NullPointerException e ) {
             Log.e("AlwaysService:EndParticipantEvent:NPEx", e.toString());
             //todo handle, try again?
         } catch (Exception e) {
             Log.e("AlwaysService:EndParticipantEvent:Ex", e.toString());
+        } finally {
+            dba.close();
         }
 
         return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done

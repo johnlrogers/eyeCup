@@ -10,6 +10,7 @@ public class TParticipantEvent {
     private String PatEvtDtStart;
     private String PatEvtDtEnd;
     private String PatEvtDtUpload;
+    private String PatEvtFileName;
     private int PatEvtResponseCnt;
     private int PatEvtPictureCnt;
 
@@ -72,6 +73,14 @@ public class TParticipantEvent {
 
     public void setPatEvtDtUpload(String PatEvtDtUpload){
         this.PatEvtDtUpload=PatEvtDtUpload;
+    }
+
+    public String getPatEvtFileName(){
+        return PatEvtFileName;
+    }
+
+    public void setPatEvtFileName(String PatEvtFileName){
+        this.PatEvtFileName=PatEvtFileName;
     }
 
     public int getPatEvtResponseCnt(){

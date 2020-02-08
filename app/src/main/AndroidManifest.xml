@@ -10,7 +10,10 @@
     <uses-permission android:name="android.permission.WRITE_INTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
-    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CAMERA" />                <!-- Camera -->
+
+    <uses-permission android:name="android.permission.INTERNET" />              <!-- post files -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />  <!-- post files -->
 
 <!--    <uses-feature android:name="android.hardware.camera2.full" />-->
     <uses-feature android:name="android.hardware.camera" />
