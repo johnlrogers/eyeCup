@@ -23,6 +23,9 @@ public class Globals {
     public static final int APP_DFLT_DEVICE_ID = 1;
     public static final String APP_DFLT_DEVICE_APPID = "12345678";
 
+    public static final String URL_EVENT_UPLOAD =   "https://icupapi.lionridgedev.com/v1/diary/";
+    public static final String URL_PICTURE_UPLOAD = "https://icupapi.lionridgedev.com/v1/photo/";
+
     public static final int APP_DFLT_PAT_ID = 1;
     public static final int APP_DFLT_PAT_DEPTID = 99;
     public static final int APP_DFLT_PAT_STUDYID = 999;

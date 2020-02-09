@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-//todo add eventDaysDuration
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({
     "ProtocolRevEventId",
@@ -25,6 +24,7 @@ import java.util.Map;
     "ProtocolRevEventName",
     "FrequencyCode",
     "EventDayStart",
+    "EventDaysDuration",
     "EventTimeOpen",
     "EventTimeWarn",
     "EventTimeClose",
@@ -81,13 +81,14 @@ public class ProtocolRevEvent implements Serializable
      * @param eventDayStart
      * //todo add eventDaysDuration
      */
-    public ProtocolRevEvent(Long protocolRevEventId, Long protocolRevId, String protocolRevEventName, String frequencyCode, Long eventDayStart, String eventTimeOpen, String eventTimeWarn, String eventTimeClose, Long eventActivityCnt, List<EventActivity> eventActivities) {
+    public ProtocolRevEvent(Long protocolRevEventId, Long protocolRevId, String protocolRevEventName, String frequencyCode, Long eventDayStart, Long eventDaysDuration, String eventTimeOpen, String eventTimeWarn, String eventTimeClose, Long eventActivityCnt, List<EventActivity> eventActivities) {
         super();
         this.protocolRevEventId = protocolRevEventId;
         this.protocolRevId = protocolRevId;
         this.protocolRevEventName = protocolRevEventName;
         this.frequencyCode = frequencyCode;
         this.eventDayStart = eventDayStart;
+        this.eventDaysDuration = eventDaysDuration;
         this.eventTimeOpen = eventTimeOpen;
         this.eventTimeWarn = eventTimeWarn;
         this.eventTimeClose = eventTimeClose;
@@ -167,6 +168,21 @@ public class ProtocolRevEvent implements Serializable
 
     public ProtocolRevEvent withEventDayStart(Long eventDayStart) {
         this.eventDayStart = eventDayStart;
+        return this;
+    }
+
+    @JsonProperty("EventDaysDuration")
+    public Long getEventDaysDuration() {
+        return eventDaysDuration;
+    }
+
+    @JsonProperty("EventDaysDuration")
+    public void setEventDaysDuration(Long eventDaysDuration) {
+        this.eventDaysDuration = eventDaysDuration;
+    }
+
+    public ProtocolRevEvent withEventDaysDuration(Long eventDaysDuration) {
+        this.eventDaysDuration = eventDaysDuration;
         return this;
     }
 

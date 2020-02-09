@@ -22,8 +22,8 @@ import java.util.Map;
     "ActRspId",
     "ActId",
     "ActRspSeq",
-    "ActRspValue",
-    "ActRspText"
+    "ActRspVal",
+    "ActRspTxt"
 })
 public class ActivityResponse implements Serializable
 {
@@ -36,10 +36,10 @@ public class ActivityResponse implements Serializable
     private Long actId;
     @JsonProperty("ActRspSeq")
     private Long actRspSeq;
-    @JsonProperty("ActRspValue")
-    private Long actRspValue;
-    @JsonProperty("ActRspText")
-    private String actRspText;
+    @JsonProperty("ActRspVal")
+    private Long ActRspVal;
+    @JsonProperty("ActRspTxt")
+    private String ActRspTxt;
     @JsonIgnore
     private Map<String, Object> additionalProperties = new HashMap<>();
     private final static long serialVersionUID = 355088460277004280L;
@@ -54,20 +54,20 @@ public class ActivityResponse implements Serializable
     /**
      * 
      * @param protocolRevEventActivityId
-     * @param actRspValue
+     * @param ActRspVal
      * @param actId
      * @param actRspSeq
-     * @param actRspText
+     * @param ActRspTxt
      * @param actRspId
      */
-    public ActivityResponse(Long protocolRevEventActivityId, Long actRspId, Long actId, Long actRspSeq, Long actRspValue, String actRspText) {
+    public ActivityResponse(Long protocolRevEventActivityId, Long actRspId, Long actId, Long actRspSeq, Long ActRspVal, String ActRspTxt) {
         super();
         this.protocolRevEventActivityId = protocolRevEventActivityId;
         this.actRspId = actRspId;
         this.actId = actId;
         this.actRspSeq = actRspSeq;
-        this.actRspValue = actRspValue;
-        this.actRspText = actRspText;
+        this.ActRspVal = ActRspVal;
+        this.ActRspTxt = ActRspTxt;
     }
 
     @JsonProperty("ProtocolRevEventActivityId")
@@ -130,33 +130,33 @@ public class ActivityResponse implements Serializable
         return this;
     }
 
-    @JsonProperty("ActRspValue")
+    @JsonProperty("ActRspVal")
     public Long getActRspValue() {
-        return actRspValue;
+        return ActRspVal;
     }
 
-    @JsonProperty("ActRspValue")
-    public void setActRspValue(Long actRspValue) {
-        this.actRspValue = actRspValue;
+    @JsonProperty("ActRspVal")
+    public void setActRspValue(Long ActRspVal) {
+        this.ActRspVal = ActRspVal;
     }
 
-    public ActivityResponse withActRspValue(Long actRspValue) {
-        this.actRspValue = actRspValue;
+    public ActivityResponse withActRspValue(Long ActRspVal) {
+        this.ActRspVal = ActRspVal;
         return this;
     }
 
-    @JsonProperty("ActRspText")
+    @JsonProperty("ActRspTxt")
     public String getActRspText() {
-        return actRspText;
+        return ActRspTxt;
     }
 
-    @JsonProperty("ActRspText")
-    public void setActRspText(String actRspText) {
-        this.actRspText = actRspText;
+    @JsonProperty("ActRspTxt")
+    public void setActRspText(String ActRspTxt) {
+        this.ActRspTxt = ActRspTxt;
     }
 
-    public ActivityResponse withActRspText(String actRspText) {
-        this.actRspText = actRspText;
+    public ActivityResponse withActRspText(String ActRspTxt) {
+        this.ActRspTxt = ActRspTxt;
         return this;
     }
 
@@ -177,12 +177,12 @@ public class ActivityResponse implements Serializable
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("protocolRevEventActivityId", protocolRevEventActivityId).append("actRspId", actRspId).append("actId", actId).append("actRspSeq", actRspSeq).append("actRspValue", actRspValue).append("actRspText", actRspText).append("additionalProperties", additionalProperties).toString();
+        return new ToStringBuilder(this).append("protocolRevEventActivityId", protocolRevEventActivityId).append("actRspId", actRspId).append("actId", actId).append("actRspSeq", actRspSeq).append("ActRspVal", ActRspVal).append("ActRspTxt", ActRspTxt).append("additionalProperties", additionalProperties).toString();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(protocolRevEventActivityId).append(actRspValue).append(actId).append(actRspSeq).append(actRspText).append(additionalProperties).append(actRspId).toHashCode();
+        return new HashCodeBuilder().append(protocolRevEventActivityId).append(ActRspVal).append(actId).append(actRspSeq).append(ActRspTxt).append(additionalProperties).append(actRspId).toHashCode();
     }
 
     @Override
@@ -194,7 +194,7 @@ public class ActivityResponse implements Serializable
             return false;
         }
         ActivityResponse rhs = ((ActivityResponse) other);
-        return new EqualsBuilder().append(protocolRevEventActivityId, rhs.protocolRevEventActivityId).append(actRspValue, rhs.actRspValue).append(actId, rhs.actId).append(actRspSeq, rhs.actRspSeq).append(actRspText, rhs.actRspText).append(additionalProperties, rhs.additionalProperties).append(actRspId, rhs.actRspId).isEquals();
+        return new EqualsBuilder().append(protocolRevEventActivityId, rhs.protocolRevEventActivityId).append(ActRspVal, rhs.ActRspVal).append(actId, rhs.actId).append(actRspSeq, rhs.actRspSeq).append(ActRspTxt, rhs.ActRspTxt).append(additionalProperties, rhs.additionalProperties).append(actRspId, rhs.actRspId).isEquals();
     }
 
 }

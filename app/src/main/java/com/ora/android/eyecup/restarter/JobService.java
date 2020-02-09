@@ -40,7 +40,8 @@ public class JobService extends android.app.job.JobService {
             unregisterReceiver(restartSensorServiceReceiver);
         } catch (Exception e){
             Log.e("JobSvc:registerRestarterReceiver:Ex", e.toString());
-            //todo handle
+            //todo handle current error
+            //E/JobSvc:registerRestarterReceiver:Ex: java.lang.IllegalArgumentException: Receiver not registered: com.ora.android.eyecup.restarter.RestartServiceBroadcastReceiver@95a815e
         }
 
         new Handler().postDelayed(new Runnable() {

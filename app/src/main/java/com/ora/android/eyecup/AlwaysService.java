@@ -25,7 +25,10 @@ import com.ora.android.eyecup.ui.login.LoginActivity;
 import com.ora.android.eyecup.utilities.FileHelper;
 import com.ora.android.eyecup.utilities.Notification;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +43,14 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import androidx.appcompat.app.AppCompatActivity;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_INSTRUCTION;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_PICTURE;
@@ -82,6 +92,7 @@ import static com.ora.android.eyecup.Globals.APP_DIR_DATA;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA_ARCHIVE;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA_FRESH;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
+import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_PICS;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL_ARCHIVE;
 import static com.ora.android.eyecup.Globals.DT_FMT_FULL_ACTIVITY;
@@ -97,6 +108,8 @@ import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_LST;
 import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_NONE;
 import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_RDB;
 import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_SLD;
+import static com.ora.android.eyecup.Globals.URL_EVENT_UPLOAD;
+import static com.ora.android.eyecup.Globals.URL_PICTURE_UPLOAD;
 
 public class AlwaysService extends Service {
 
@@ -161,7 +174,7 @@ public class AlwaysService extends Service {
         GetPatFromDb();                         //get participant form database
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
 
-        UploadPendingData();                  //Upload data not uplpoaded
+        UploadPendingData();                    //Upload data not uplpoaded
 
         restartForeground();                    //start service if not running
         mCurrentService = this;
@@ -663,7 +676,10 @@ public class AlwaysService extends Service {
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
         try {
             dba.open();                                                                 //open db
-            String strQry = "SELECT * FROM vProtRevEvtActivities WHERE ActId is not NULL and ActTypeId IS NOT NULL ORDER BY ProtRevId, ProtRevEvtId, ActSeq, ProtRevEvtActId, ActRspSeq";
+//            String strQry = "SELECT * FROM vProtRevEvtActivities WHERE ActId is not NULL and ActTypeId IS NOT NULL ORDER BY ProtRevId, ProtRevEvtId, ActSeq, ProtRevEvtActId, ActRspSeq";
+            String strQry = "SELECT * FROM vProtRevEvtActExp";
+            strQry = strQry + " WHERE ActId is not NULL and ActTypeId IS NOT NULL";
+            strQry = strQry + " ORDER BY ProtRevId, ProtRevEvtId, ActSeq, ProtRevEvtActId, ActRspSeq";
             Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
             while (crs.moveToNext()) {                                                  //Iterate Event Activities and Responses
                 {
@@ -675,10 +691,12 @@ public class AlwaysService extends Service {
                         newProtRev = new ProtocolRevision();
                         newProtRev.setProtocolRevId(lCurRev);                                     //set current Protocol Rev
                         //set current protocol Rev values
-                        newProtRev.setProtocolName(crs.getString(crs.getColumnIndex("ProtName")));          //todo add to vProtRevEvtActivities
-                        newProtRev.setProtocolRevName(crs.getString(crs.getColumnIndex("ProtRevName")));    //todo add to vProtRevEvtActivities
-                        newProtRev.setProtocolRevDt(crs.getString(crs.getColumnIndex("ProtRevDt")));        //todo add to vProtRevEvtActivities
-                        newProtRev.setProtocolRevEventCnt(crs.getLong(crs.getColumnIndex("EvtCnt")));
+                        newProtRev.setProtocolName(crs.getString(crs.getColumnIndex("ProtName")));
+                        newProtRev.setProtocolRevName(crs.getString(crs.getColumnIndex("ProtRevName")));
+                        newProtRev.setProtocolRevDt(crs.getString(crs.getColumnIndex("ProtRevDt")));
+//                        newProtRev.setProtocolRevEventCnt(crs.getLong(crs.getColumnIndex("EvtCnt")));
+//                        newProtRev.setProtocolRevEventCnt(crs.getLong(crs.getColumnIndex("ProtRevEvtCnt")));          //tProtRev stored event count
+                        newProtRev.setProtocolRevEventCnt(crs.getLong(crs.getColumnIndex("CalcEvtCnt")));   //view calculated event count
 
                         lPrevRev = lCurRev;                                                     //reset previous
                     }
@@ -696,11 +714,13 @@ public class AlwaysService extends Service {
                         newProtRevEvt.setProtocolRevEventName(crs.getString(crs.getColumnIndex("ProtRevEvtName")));
                         newProtRevEvt.setFrequencyCode(crs.getString(crs.getColumnIndex("EvtFreq")));
                         newProtRevEvt.setEventDayStart(crs.getLong(crs.getColumnIndex("EvtStart")));
-//                    newProtRevEvt.sete(crs.getLong(crs.getColumnIndex("EvtDaysDuration")));
+                        newProtRevEvt.setEventDaysDuration(crs.getLong(crs.getColumnIndex("EvtDaysDuration")));
                         newProtRevEvt.setEventTimeOpen(crs.getString(crs.getColumnIndex("EvtTimeOpen")));
                         newProtRevEvt.setEventTimeWarn(crs.getString(crs.getColumnIndex("EvtTimeWarn")));
                         newProtRevEvt.setEventTimeClose(crs.getString(crs.getColumnIndex("EvtTimeClose")));
-                        //                   newProtRevEvt.setEventActivityCnt(crs.getLong(crs.getColumnIndex("eventActivityCnt")));
+//                        newProtRevEvt.setEventActivityCnt(crs.getLong(crs.getColumnIndex("eventActivityCnt")));
+//                        newProtRevEvt.setEventActivityCnt(crs.getLong(crs.getColumnIndex("ProtRevEvtActCnt")));           //tProtRevEvent stored count
+                        newProtRevEvt.setEventActivityCnt(crs.getLong(crs.getColumnIndex("CalcActCnt")));       //view calculated count
 
                         lPrevEvt = lCurEvt;
                     }
@@ -724,25 +744,25 @@ public class AlwaysService extends Service {
                         newProtRevEvtAct.setProtocolRevEventId(lCurEvt);
                         newProtRevEvtAct.setActivitySeq(crs.getLong(crs.getColumnIndex("ActSeq")));
                         newProtRevEvtAct.setActivityId(crs.getLong(crs.getColumnIndex("ActId")));
-                        newProtRevEvtAct.setProtRevEvtApplyTo(crs.getString(crs.getColumnIndex("ApplyTo")));
+                        newProtRevEvtAct.setProtRevEvtApplyTo(crs.getString(crs.getColumnIndex("ProtRevEvtApplyTo")));
                         newProtRevEvtAct.setMinRange(crs.getLong(crs.getColumnIndex("MinRange")));
                         newProtRevEvtAct.setMaxRange(crs.getLong(crs.getColumnIndex("MaxRange")));
                         newProtRevEvtAct.setActivityTypeId(crs.getLong(crs.getColumnIndex("ActTypeId")));
                         newProtRevEvtAct.setActivityTypeCode(crs.getString(crs.getColumnIndex("ActTypeCode")));
-                        newProtRevEvtAct.setActivityText(crs.getString(crs.getColumnIndex("ActText")));
+                        newProtRevEvtAct.setActivityText(crs.getString(crs.getColumnIndex("ActTxt")));
                         newProtRevEvtAct.setActivityPictureCode(crs.getString(crs.getColumnIndex("ActPictureCode")));
                         newProtRevEvtAct.setActivityResponseTypeId(crs.getLong(crs.getColumnIndex("RspTypeId")));
                         newProtRevEvtAct.setActivityResponseTypeCode(crs.getString(crs.getColumnIndex("ActResponseTypeCode")));
-//                    newProtRevEvtAct.setActivityResponseCnt();
+//                    newProtRevEvtAct.setImageFileId(crs.getLong(crs.getColumnIndex("ActImage")));
 //                    newProtRevEvtAct.setImageFileId(crs.getLong(crs.getColumnIndex("ImageFileId")));
 //                    newProtRevEvtAct.setImageFileName(crs.getString(crs.getColumnIndex("ImageFileName")));
 //                    newProtRevEvtAct.setImageFilePath(crs.getString(crs.getColumnIndex("ImageFilePath")));
-//                    newProtRevEvtAct.setActivityResponseCnt(crs.getLong(crs.getColumnIndex("ActRespCnt")));     //Use Field or Calculate???
+                        newProtRevEvtAct.setActivityResponseCnt(crs.getLong(crs.getColumnIndex("ActRspCnt")));      //tProtRevEventActivity stored response count
+                        newProtRevEvtAct.setActivityResponseCnt(crs.getLong(crs.getColumnIndex("CalcRspCnt")));     //view calculated response count
 
                         lPrevAct = lCurAct;
                     }
 
-                    //TODO: Future just get ActRspId from the View.  Currently it is not in there
                     lCurRspTypeId = crs.getLong(crs.getColumnIndex("RspTypeId"));   //get response type
                     if ((lCurRspTypeId > 1) && (lCurRspTypeId != 4)) {                          //Greater than 1 means there is a response, Not 4 means skip Sliders
 //20200126
@@ -759,8 +779,8 @@ public class AlwaysService extends Service {
                             newProtRevEvtActRsp.setActRspId(lCurRsp);
                             newProtRevEvtActRsp.setActId(crs.getLong(crs.getColumnIndex("ActId")));
                             newProtRevEvtActRsp.setActRspSeq(crs.getLong(crs.getColumnIndex("ActRspSeq")));
-                            newProtRevEvtActRsp.setActRspValue(crs.getLong(crs.getColumnIndex("ActRspValue")));
-                            newProtRevEvtActRsp.setActRspText(crs.getString(crs.getColumnIndex("ActRspText")));
+                            newProtRevEvtActRsp.setActRspValue(crs.getLong(crs.getColumnIndex("ActRspVal")));
+                            newProtRevEvtActRsp.setActRspText(crs.getString(crs.getColumnIndex("ActRspTxt")));
 
                             lPrevRsp = lCurRsp;
                         }
@@ -793,20 +813,21 @@ public class AlwaysService extends Service {
 
     private void UploadPendingData()
     {
-        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
-        try {
-            dba.open();                                                                 //open db
-            String strQry = "SELECT PatEvtId FROM tParticipantEvent WHERE PatEvtDtUpload = ''";                                    //set SQL
-            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
-            while (crs.moveToNext()) {                                                  //Iterate Cursor
-                UploadParticipantEvent(crs.getColumnIndex("PatEvtId"));
-            }
-            crs.close();
-            dba.close();
-
-        } catch (NullPointerException e) {
-            Log.e("AlwaysService:UploadPendingData:NPEx", e.toString());
-        }
+        UploadNonUploadedEvents();
+//        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+//        try {
+//            dba.open();                                                                 //open db
+//            String strQry = "SELECT PatEvtId FROM tParticipantEvent WHERE PatEvtDtUpload = ''";                                    //set SQL
+//            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+//            while (crs.moveToNext()) {                                                  //Iterate Cursor
+//                UploadParticipantEvent(crs.getColumnIndex("PatEvtId"));
+//            }
+//            crs.close();
+//            dba.close();
+//
+//        } catch (NullPointerException e) {
+//            Log.e("AlwaysService:UploadPendingData:NPEx", e.toString());
+//        }
     }
     /**
      * initialize directory structure
@@ -1225,38 +1246,6 @@ public class AlwaysService extends Service {
         } else {                                //Otherwise
             return LOGIN_PARTICPANT_ERR_NO_ERR;     //return Participant Login OK
         }
-//        return LOGIN_ERR_UNK;                   //we should never get this far
-
-//
-//
-//        try {
-//            Integer patNum = null;
-//            String dbPass = null;
-//            for (int i = 0; i < patInfo[0].length; i++) {
-//                if (((String)patInfo[0][i]).equals("PatNumber"))
-//                    patNum = (int)patInfo[1][i];
-//                else if (((String)patInfo[0][i]).equals("Password"))
-//                    password = patInfo[1][i].toString();
-//            }
-//
-//            LoggedInUser patient = new LoggedInUser(patNum.toString(), "Patient " + patNum.toString());
-//            LoggedInUser administrator = new LoggedInUser("Admin", "Administrator");
-
-//            if (username.equals(patNum.toString()) && password.equals(dbPass)) {
-//                AlwaysService.getmCurrentService().mState = Globals.SVC_EVT_STATE_RUN;        //Participant logged in
-//                return new Result.Success<>(patient);                                           //edit: start the event
-//            }
-
-//            if (username.equals("Admin") && password.equals("123456")) { //edit: set admin username and password here
-//                AlwaysService.getmCurrentService().mState = Globals.SVC_EVT_STATE_ADMIN;      //User Logged in
-//                return new Result.Success<>(administrator);                                     //edit: go to admin screen
-//            }
-
-//            exception = new Exception("Incorrect username or password.");
-//        } catch (Exception e) { exception = e; }
-
-//        return new Result.Error(new IOException("Error logging in", exception));
-
     }
 
     //edit: call each time a participant event activity is committed; set "entity" to a PatEventResponse or a PatEventPicture
@@ -1267,8 +1256,6 @@ public class AlwaysService extends Service {
 
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
         try {
-            dba.open();                                                                 //open db
-
             TParticipantEventActivity actResp = new TParticipantEventActivity();        //new event activity to record
             actResp.setPatevtid(mlCurPatEvtId);                                         //set patient event id
             actResp.setProtrevevtactid(mArrProtRevEvtAct.get(iActIdx).getProtocolRevEventActivityId().intValue());  //set prot rev event Activity Id
@@ -1276,109 +1263,17 @@ public class AlwaysService extends Service {
             actResp.setResponseTxt(strResponseTxt);                                     //set Response text
             actResp.setResponsePath(strResponsePath);                                   //set Response path
 
+            dba.open();                                                                 //open db
             dba.SavePatEvtActivityResponse(actResp);                                    //Save it
             dba.close();                                                                //close db
 
         } catch (NullPointerException e ) {
-            Log.e("AlwaysService:CommitActivityInfo:NPEx", e.toString());
+            Log.e("AlwaysService:SaveActivityResult:NPEx", e.toString());
             //todo handle, try again?
             return false;
         }
-
-//        if (entity.getClass().equals(PatEventResponse.class)) {
-//            dba.InsertParticipantResponse(patEvtId, (PatEventResponse)entity);
-//            dba.UpdateParticipantEventChildCnt(patEvtId, true, GetPatActivityRespOrPicCnt(patEvtId, false, dba));
-//        }
-//        else {
-//            dba.InsertParticipantPicture(patEvtId, (PatEventPicture) entity);
-//            dba.UpdateParticipantEventChildCnt(patEvtId, false, GetPatActivityRespOrPicCnt(patEvtId, true, dba));
-//        }
-//        dba.InsertParticipantPicture(mlCurPatEvtId, objPic);
-
-
         return true;
     }
-
-//    private ParticipantEvent GetParticipantInfoEntity(DatabaseAccess dba) {
-//    private ParticipantEvent GetParticipantInfoEntity() {
-//
-//        ParticipantEvent event = new ParticipantEvent();
-//
-//        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());           //get and open database
-//        try {
-//            dba.open();
-//        } catch (NullPointerException e ) {
-//            Log.e("AlwaysService:CommitActivityInfo:NPEx", e.toString());
-//            //todo handle, try again?
-//            return false;
-//        }
-//
-//        dba.open();
-//        Object[][] patInfo = dba.GetParticipantInfo();
-//        List<Object[]> deviceInfo = dba.GetTableData("tDevice");
-//        dba.close();
-//        for (int i = 0; i < patInfo.length; i++)
-//        {
-//            if (patInfo[i][0].equals("PatId")) {
-//                event.setParticipantId(patInfo[i][1].toString());
-//                miPatId = (int)patInfo[i][0];
-//            }
-//            else if (patInfo[i][0].equals("StudyPatNumber"))
-//            {
-//                mstrPatNumber = (String)patInfo[i][0];
-//                Integer[] components = new Integer[5];
-//                try {
-//                    String[] spnComponents = patInfo[i][1].toString().split("-");
-//                    for (int j = 0; j < spnComponents.length; j++)
-//                        components[j] = Integer.parseInt(spnComponents[j]);
-//                }
-//                catch (Exception e) {
-//                    Log.e("AlwaysService:getParticipantInfoEntity:Ex", e.toString());
-//                    //todo handle
-//                    components = null;
-//                }
-//                if (components != null) {
-//                    event.setYearId(components[0].toString());
-//                    event.setDepartmentId(components[1].toString());
-//                    event.setStudyId(components[2].toString());
-//                    event.setLocationId(components[3].toString());
-//                    event.setSubjectId(components[4].toString());
-//                }
-//            }
-//        }
-//        for (int i = 0; i < deviceInfo.get(0).length; i++)
-//            if (deviceInfo.get(0)[i].equals("DeviceId"))
-//                event.setDeviceId(deviceInfo.get(1)[i].toString());
-//            else if (deviceInfo.get(0)[i].equals("DeviceAppId"))
-//                event.setDeviceAppId(deviceInfo.get(1)[i].toString());
-//        return event;
-//    }
-
-
-//    public long StartParticipantEvent(DatabaseAccess dba, long protocolRevId, long protocolRevEventId, long eventId, DateFormat dFormat) { //edit: call each time a participant event begins; returns its corresponding "PatEvtId"; have a universal "DateFormat" for formatting SQLite db dates, to set here and everywhere else applicable
-//        if (dba == null || dFormat == null)
-//            return -1; //default for method misuse
-//        ParticipantEvent participantEvent = GetParticipantInfoEntity(dba);
-//        List<Object[]> existingEvents = dba.GetTableData("tParticipantEvent");
-//        long maxId = 0;
-//        for (int i = 1; i < existingEvents.size(); i++) {
-//            for (int j = 0; j < existingEvents.get(i).length; j++) {
-//                if (existingEvents.get(0)[i].equals("PatEventId") && (long)existingEvents.get(i)[i] > maxId)
-//                    maxId = (long)existingEvents.get(i)[i];
-//            }
-//        }
-//        participantEvent.setPatEventId(maxId + 1);
-//        participantEvent.setProtocolRevId(protocolRevId);
-//        participantEvent.setProtocolRevEventId(protocolRevEventId);
-//        participantEvent.setEventId(eventId);
-//        participantEvent.setPatEventDtStart(dFormat.format(Calendar.getInstance().getTime()));
-//        participantEvent.setPatEventResponseCnt(0L);
-//        participantEvent.setPatEventPictureCnt(0L);
-//        dba.open();
-//        dba.InsertParticipantEvent(participantEvent);
-//        dba.close();
-//        return participantEvent.getPatEventId();
-//    }
 
     //participant event begins;
     // Create or init new mCurPatEvt
@@ -1471,11 +1366,6 @@ public class AlwaysService extends Service {
         return oldEvtCnt;
     }
 
-    public boolean UploadParticipantEvent(long patEvtId) {
-
-        return true;
-    }
-
     public String EndParticipantEvent(long patEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
 
         Globals glob = new Globals();
@@ -1488,15 +1378,9 @@ public class AlwaysService extends Service {
             dba.open();                                                             //open
             dba.MarkParticipantEventEnded(patEvtId, strDt);                         //mark event ended
 
-            AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();      //get activity for context
-                                                                                    //create JSON output
-//            path = dba.CreateJSON("vOuterPatEvt",
-//                    "PatEventResponses",
-//                    "vInnerPatEvt",
-//                    "PatEventImages",
-//                    "vInnerPatEvtImages",
-//                    activity);
-            path = dba.CreateJSON("vOuterPatEvtAll",
+//            AppCompatActivity activity = Global.GetGlobal().GetCurrActivity();      //get activity for context
+
+            path = dba.CreateJSON("vOuterPatEvtAll",                //create JSON output
                     "PatEventResponses",
                     "vInnerPatEvtAll",
                     "PatEventImages",
@@ -1504,15 +1388,16 @@ public class AlwaysService extends Service {
                     patEvtId,
                     getApplicationContext());
 
-            //todo *** update file name in tParticipantEvent
             if (!path.equals("")) {
                 Path p = Paths.get(path);
                 String strFile = p.getFileName().toString();
-                dba.UpdateTParticipantEventFileName(patEvtId, strFile);
+                dba.UpdateTParticipantEventFileName(patEvtId, strFile);             //update the tParticipantEvent json file name
             }
 
-            jsonSendResponse = dba.TrySendJSONToServer(path);                       //send JSON
-//            dba.close();
+            String strURL = URL_EVENT_UPLOAD + mCurDevice.getDeviceId() + "/" + mCurDevice.getDeviceAppId() + "/";  //get url
+//            strURL = "https://postman-echo.com/post";
+//            strURL = "https://icupapi.lionridgedev.com/v1/diary/basic";
+            jsonSendResponse = dba.TrySendJSONToServer(strURL, path);               //send JSON
 
         } catch (NullPointerException e ) {
             Log.e("AlwaysService:EndParticipantEvent:NPEx", e.toString());
@@ -1522,8 +1407,174 @@ public class AlwaysService extends Service {
         } finally {
             dba.close();
         }
-
         return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
     }
+
+    public boolean UploadNonUploadedEvents() {
+        boolean bRet = false;
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            long lPatEvtId;
+            String strFile;
+
+            dba.open();                                                                 //open db
+            String strQry = "SELECT PatEvtId, PatEvtFileName FROM vPatEvtCompNoUpload";
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Events
+                lPatEvtId = crs.getInt(crs.getColumnIndex("PatEvtId"));         //Get Id
+                strFile = crs.getString(crs.getColumnIndex("PatEvtFileName"));  //Get file name
+//                UploadParticipantEvent(lPatEvtId);
+                UploadParticipantEventPictures(lPatEvtId);
+            }
+            crs.close();
+            dba.close();
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:UploadNonUploadedEvents:NPEx", e.toString());
+            //todo handle
+        }
+        return bRet;
+    }
+
+    public boolean UploadParticipantEvent(long patEvtId) {
+        boolean bRet = false;
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            long lPatEvtId;
+            String strFile;
+
+            dba.open();                                                                 //open db
+            String strQry = "SELECT PatEvtId, PatEvtFileName FROM vPatEvtCompNoUpload";
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Events
+                lPatEvtId = crs.getInt(crs.getColumnIndex("PatEvtId"));         //Get Id
+                strFile = crs.getString(crs.getColumnIndex("PatEvtFileName"));  //Get file name
+//                UploadParticipantEvent
+            }
+            crs.close();
+            dba.close();
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:TryLogin:NPEx", e.toString());
+            //todo handle
+        }
+        return bRet;
+    }
+
+    public boolean UploadParticipantEventPictures(long lPatEvtId) {
+        boolean bRet = false;
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            long lPatEvtActId;
+            String strFile;
+            String strDir = APP_DIR_PARTICIPANTS + "/" + mCurPat.getStudypatnumber() + APP_DIR_PARTICIPANT_PICS;
+            File fPicFile;
+            String strPicFile;
+
+            String strQry = "SELECT PatEvtActId, PatEvtActFileName FROM vPatEvtActNoUpload";
+            if (lPatEvtId > 0) {
+                strQry = strQry + " WHERE PatEvtId = " + lPatEvtId;
+            }
+            dba.open();                                                                     //open db
+            Cursor crs = dba.db.rawQuery(strQry, null);                         //get cursor to view
+            while (crs.moveToNext()) {                                                      //Iterate Events
+                lPatEvtActId = crs.getInt(crs.getColumnIndex("PatEvtActId"));       //Get Id
+                strFile = crs.getString(crs.getColumnIndex("PatEvtActFileName"));   //Get file name
+                fPicFile = new File(getApplicationContext().getExternalFilesDir(strDir), strFile);  //get fully qualified file
+                strPicFile = fPicFile.getAbsolutePath();                                        //get fully qualified path
+                Log.d("AlwaysService:UploadParticipantEventPictures", strPicFile);
+
+                try {
+                    FileInputStream is = new FileInputStream(strPicFile);
+                    UploadPicture(getBytes(is), strFile);
+
+                } catch (FileNotFoundException e) {
+                    Log.e("AlwaysService:UploadPicture:FNFEx", e.toString());
+                } catch (IOException e) {
+                    Log.e("AlwaysService:UploadPicture:IOEx", e.toString());
+                }
+            }
+            crs.close();
+            dba.close();
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:TryLogin:NPEx", e.toString());
+            //todo handle
+        }
+        return bRet;
+    }
+
+//    public boolean UploadPicture(String strPicFile) {
+//        boolean bRet = false;
+//
+//        try {
+//            FileInputStream is = new FileInputStream(strPicFile);
+//            uploadImage(getBytes(is));
+//        } catch (FileNotFoundException e) {
+//            Log.e("AlwaysService:UploadPicture:FNFEx", e.toString());
+//        } catch (IOException e) {
+//        Log.e("AlwaysService:UploadPicture:IOEx", e.toString());
+//        }
+//
+//        bRet = true;
+//        return bRet;
+//    }
+
+    private void UploadPicture(byte[] imageBytes, String strImageName) {
+//        String strURL = URL_EVENT_UPLOAD + mCurDevice.getDeviceId() + "/" + mCurDevice.getDeviceAppId() + "/";  //get url
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(URL_PICTURE_UPLOAD)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        RetrofitInterface retrofitInterface = retrofit.create(RetrofitInterface.class);
+        RequestBody requestFile = RequestBody.create(MediaType.parse("image/jpeg"), imageBytes);
+
+//        MultipartBody.Part body = MultipartBody.Part.createFormData("image", "image.jpg", requestFile);
+        MultipartBody.Part body = MultipartBody.Part.createFormData(strImageName, strImageName, requestFile);
+        Call<Response> call = retrofitInterface.uploadImage(body);
+
+        call.enqueue(new Callback<Response>() {
+            @Override
+            public void onResponse(Call<Response> call, retrofit2.Response<Response> response) {
+                if (response.isSuccessful()) {
+                    Response responseBody = response.body();
+//                    mImageUrl = URL + responseBody.getPath();
+                } else {
+                    ResponseBody errorBody = response.errorBody();
+                    Gson gson = new Gson();
+                    try {
+                        Response errorResponse = gson.fromJson(errorBody.string(), Response.class);
+                    } catch (IOException e) {
+                        Log.d("AlwaysService:UploadPictureCall:IOEx", e.toString());
+                        e.printStackTrace();
+                    } catch (NullPointerException e) {
+                        Log.d("AlwaysService:UploadPictureCall:NPEx", e.toString());
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Response> call, Throwable t) {
+                Log.d(TAG, "onFailure: "+t.getLocalizedMessage());
+            }
+        });
+    }
+
+    public byte[] getBytes(InputStream is) throws IOException {
+        ByteArrayOutputStream byteBuff = new ByteArrayOutputStream();
+
+        int buffSize = 1024;
+        byte[] buff = new byte[buffSize];
+
+        int len;
+        while ((len = is.read(buff)) != -1) {
+            byteBuff.write(buff, 0, len);
+        }
+        return byteBuff.toByteArray();
+    }
+
 }
 

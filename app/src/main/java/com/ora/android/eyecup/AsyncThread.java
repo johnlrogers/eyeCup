@@ -4,28 +4,36 @@ import android.os.AsyncTask;
 import android.util.Log;
 
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
+import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 
 public class AsyncThread extends AsyncTask<String, Void, String> {
+
+    @Override
+    protected void onPostExecute(String result) {
+        super.onPostExecute(result);
+        Log.e("AsyncThread:onPostExecute", result); // this is expecting a response code to be sent from your server upon receiving the POST data
+    }
+
     @Override
     protected String doInBackground(String... strings) {
 
-        try {
-            String attachmentName = strings[0].substring(strings[0].lastIndexOf("/") + 1);
-            String attachmentFileName = attachmentName;
-            String boundary =  "*****";
-            String strJsonOut;
-            String strJsonIn;
+        String data = "";
+        HttpsURLConnection httpsUrlConnection = null;
 
-            HttpsURLConnection httpsUrlConnection = null;
+        try {
+            String attachmentName = strings[1];
+            String attachmentFileName = strings[1].substring(strings[0].lastIndexOf("/") + 1);
+            String boundary =  "*****";
+            String strJson;
+
             //URL url = new URL("https://icupapi.lionridgedev.com/");
-            URL url = new URL("https://icupapi.lionridgedev.com/v1/diary/1/12345678/");
+//            URL url = new URL("https://icupapi.lionridgedev.com/v1/diary/1/12345678/");
+            URL url = new URL(strings[0]);
             httpsUrlConnection = (HttpsURLConnection) url.openConnection();
             httpsUrlConnection.setUseCaches(false);
             httpsUrlConnection.setDoOutput(true);
@@ -33,49 +41,45 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
             httpsUrlConnection.setRequestMethod("POST");
             httpsUrlConnection.setRequestProperty("Connection", "Keep-Alive");
             httpsUrlConnection.setRequestProperty("Cache-Control", "no-cache");
-            httpsUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+            httpsUrlConnection.setRequestProperty("Content-Type", "application/json");
+//            httpsUrlConnection.setRequestProperty("Content-Type", "json/text");
+
+//            httpsUrlConnection.setDoOutput(true);
+
+            try {
+//                InputStream is = new InputStream(attachmentName);
+                File file = new File(attachmentName);
+                FileInputStream is = new FileInputStream(file);
+                int size = is.available();
+                byte[] buffer = new byte[size];
+                is.read(buffer);
+                is.close();
+                strJson = new String(buffer, "UTF-8");
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                return null;
+            }
 
             DataOutputStream request = new DataOutputStream(httpsUrlConnection.getOutputStream());
-
-            List<Byte> bytesList = new ArrayList<Byte>();
-            try (InputStream in = new FileInputStream(strings[0])) {
-                byte[] buf = new byte[1024];
-                while (in.read(buf) > 0) {
-                    for (int i = 0; i < buf.length; i++)
-                        bytesList.add(buf[i]);
-                }
-            }
-            byte[] bytes = new byte[bytesList.size()];
-            for (int i = 0; i < bytes.length; i++)
-                bytes[i] = bytesList.get(i);
-
-            request.write(bytes);       //write the data to the output stream
+//            request.writeBytes("PostData=" + strJson);
+            request.writeBytes(strJson);
             request.flush();            //flush output stream
             request.close();            //close output stream
 
             int iResponseCode = httpsUrlConnection.getResponseCode();
+            Log.i("STATUS", String.valueOf(iResponseCode));
             String strResponseMsg = httpsUrlConnection.getResponseMessage();
+            Log.i("MSG" , strResponseMsg);
 
-//            InputStream responseStream = new BufferedInputStream(httpsUrlConnection.getInputStream());
-//            BufferedReader responseStreamReader = new BufferedReader(new InputStreamReader(responseStream));
-//
-//            String line = "";
-//            StringBuilder stringBuilder = new StringBuilder();
-//
-//            while ((line = responseStreamReader.readLine()) != null) {
-//                stringBuilder.append(line).append("\n");
-//            }
-//            responseStreamReader.close();
-
-//            responseStream.close();
-            httpsUrlConnection.disconnect();
-
-//            return stringBuilder.toString();
             return strResponseMsg;
         }
         catch (Exception ex) {
             Log.e("AsyncThread:doInBackground:Ex", ex.toString());
             //todo: handle
+        } finally {
+            if (httpsUrlConnection != null) {
+                httpsUrlConnection.disconnect();
+            }
         }
         return null;
     }

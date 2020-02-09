@@ -147,7 +147,7 @@ public class DatabaseAccess {
     }
 
     public String GetStudyPatNumber() {
-        String studyPatNumber = "";
+        String studyPatNumber;
         try { c = db.rawQuery("SELECT StudyPatNumber FROM tParticipant LIMIT 1;", new String[] { }); }
         catch (Exception e) {
             Log.e("DA:GetParticipantInfo:Ex", e.toString());
@@ -300,12 +300,25 @@ public class DatabaseAccess {
     }
 
     public boolean UpdateTParticipantEventDtUpload(long patEvtId) {
-        String colName = "PatEvtDtUploade";
+        String colName = "PatEvtDtUpload";
         Globals glob = new Globals();
         String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
         try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strDt + "' WHERE PatEvtId = " + patEvtId + ";"); }
         catch (Exception e) {
             Log.e("DA:UpdateTParticipantEventDtUpload:Ex", e.toString());
+            //todo handle
+            return false;
+        }
+        return true;
+    }
+
+    public boolean UpdateTParticipantEventActivityDtUpload(long patEvtActId) {
+        String colName = "PatEvtActDtUpload";
+        Globals glob = new Globals();
+        String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
+        try { db.execSQL("UPDATE tParticipantEventActivity SET " + colName + " = '" + strDt + "' WHERE PatEvtActId = " + patEvtActId + ";"); }
+        catch (Exception e) {
+            Log.e("DA:UpdateTParticipantEventActivityDtUpload:Ex", e.toString());
             //todo handle
             return false;
         }
@@ -430,11 +443,13 @@ public class DatabaseAccess {
 //        return stringBuilder.toString();
 //    }
 
-    public String TrySendJSONToServer(String filePath) { //returns null if unsuccessful
+//    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful
+    public String TrySendJSONToServer(String strURL, String filePath) {        //returns null if unsuccessful
 
         String response = "";
         AsyncThread asyncThread = new AsyncThread();
-        AsyncTask<String, Void, String> task = asyncThread.execute(filePath);
+//        AsyncTask<String, Void, String> task = asyncThread.execute(filePath);
+        AsyncTask<String, Void, String> task = asyncThread.execute(strURL, filePath);
         return response; //edit: get and return response synchronously
     }
 
@@ -463,15 +478,19 @@ public class DatabaseAccess {
         }
     }
 
-    //todo add eventDaysDuration
     private void InsertProtocolRevEvent(ProtocolRevEvent entity) {
         if (entity == null)
             return; //returned for method misuse
         try {
-            db.execSQL("INSERT INTO tProtRevEvent (ProtRevEvtId, ProtRevId, ProtRevEvtName, EvtFreq, EvtStart, EvtTimeOpen, " +
+//            db.execSQL("INSERT INTO tProtRevEvent (ProtRevEvtId, ProtRevId, ProtRevEvtName, EvtFreq, EvtStart, EvtTimeOpen, " +
+//                    "EvtTimeWarn, EvtTimeClose) VALUES (" + entity.getProtocolRevEventId().toString() + ", " +
+//                    entity.getProtocolRevId().toString() + ", '" + entity.getProtocolRevEventName() + "', '" + entity.getFrequencyCode()
+//                    + "', " + entity.getEventDayStart().toString() + ", '" + entity.getEventTimeOpen() + "', '" +
+//                    entity.getEventTimeWarn() + "', '" + entity.getEventTimeClose() + "');");
+            db.execSQL("INSERT INTO tProtRevEvent (ProtRevEvtId, ProtRevId, ProtRevEvtName, EvtFreq, EvtStart, EvtDaysDuration, EvtTimeOpen, " +
                     "EvtTimeWarn, EvtTimeClose) VALUES (" + entity.getProtocolRevEventId().toString() + ", " +
                     entity.getProtocolRevId().toString() + ", '" + entity.getProtocolRevEventName() + "', '" + entity.getFrequencyCode()
-                    + "', " + entity.getEventDayStart().toString() + ", '" + entity.getEventTimeOpen() + "', '" +
+                    + "', " + entity.getEventDayStart().toString() + "', " + entity.getEventDaysDuration().toString() + ", '" + entity.getEventTimeOpen() + "', '" +
                     entity.getEventTimeWarn() + "', '" + entity.getEventTimeClose() + "');");
         }
         catch (Exception e) {
@@ -506,7 +525,7 @@ public class DatabaseAccess {
                     "(" + entity.getProtocolRevEventActivityId().toString() + ", " + parent.getProtocolRevEventId().toString() + ", " +
                     parent.getActivitySeq().toString() + ", " + entity.getActId().toString() + ", '" + parent.getProtRevEvtApplyTo() +
                     "');");
-            db.execSQL("INSERT INTO tActivityResponseAvail (ActRspId, ActId, ActRspSeq, ActRspValue) VALUES (" +
+            db.execSQL("INSERT INTO tActivityResponseAvail (ActRspId, ActId, ActRspSeq, ActRspVal) VALUES (" +
                     entity.getActRspId().toString() + ", " + entity.getActId().toString() + ", " + entity.getActRspSeq().toString() +
                     ", " + entity.getActRspValue().toString() + ");");
         }
@@ -549,7 +568,6 @@ public class DatabaseAccess {
         }
     }
 
-    //todo add eventDaysDuration
     private List<ProtocolRevEvent> ToPREEntityList(JsonArray protocolRevEvents) {
         if (protocolRevEvents == null)
             return null; //default for method misuse
@@ -559,6 +577,7 @@ public class DatabaseAccess {
             entityList.add(new ProtocolRevEvent(pre.get("ProtocolRevEventId").getAsLong(),
                     pre.get("ProtocolRevId").getAsLong(), OptionalOrDefault(pre, "ProtocolRevEventName", ""),
                     pre.get("FrequencyCode").getAsString(), pre.get("EventDayStart").getAsLong(),
+                    pre.get("EventDaysDuration").getAsLong(),
                     pre.get("EventTimeOpen").getAsString(), pre.get("EventTimeWarn").getAsString(),
                     //todo Warning:(344, 105) Use `Long.valueOf(0)` instead
                     pre.get("EventTimeClose").getAsString(), OptionalOrDefault(pre, "EventActivityCnt", 0L),
@@ -591,8 +610,8 @@ public class DatabaseAccess {
         for (int i = 0; i < activityResponse.size(); i++) {
             JsonObject ar = activityResponse.get(i).getAsJsonObject();
             entityList.add(new ActivityResponse(ar.get("ProtocolRevEventActivityId").getAsLong(), ar.get("ActRspId").getAsLong(),
-                    ar.get("ActId").getAsLong(), ar.get("ActRspSeq").getAsLong(), ar.get("ActRspValue").getAsLong(),
-                    ar.get("ActRspText").getAsString()));
+                    ar.get("ActId").getAsLong(), ar.get("ActRspSeq").getAsLong(), ar.get("ActRspVal").getAsLong(),
+                    ar.get("ActRspTxt").getAsString()));
         }
         return entityList;
     }
@@ -630,7 +649,7 @@ public class DatabaseAccess {
 
         JSONObject resultObj = new JSONObject();
         String fileName = ""; //default for method misuse
-        String strSQL = "";
+        String strSQL;
 
         if (outerObjectDbView == null || innerObjectsName == null || innerObjectsDbView == null || innerImagesName == null
                 || innerImagesDbView == null || ctx == null)
@@ -724,19 +743,22 @@ public class DatabaseAccess {
         if (!evtsFolder.isDirectory())
             evtsFolder.mkdir();
 
-        try { MoveTo("files/" + relFileName, strNewFile, true); }
+        relFileName = ctx.getFilesDir().toString() + "/" + relFileName;
+//        try { MoveTo("files/" + relFileName, strNewFile, true); }
+        try { MoveTo(relFileName, strNewFile, true); }
         catch (Exception e) {
             Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
             //todo handle
         }
-        try { MoveTo("files/" + relFileName, strNewFile2, true); }
+//        try { MoveTo("files/" + relFileName, strNewFile2, true); }
+        try { MoveTo(relFileName, strNewFile2, true); }
         catch (Exception e) {
             Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
             //todo handle
         }
 
-        fileName = FormatFileName(APP_DIR_PARTICIPANTS + "/" + spn + "/Events/" + relFileName,".json",
-                                new SimpleDateFormat("yyyy-MM-dd_hh-mm-ss"));
+//        fileName = FormatFileName(APP_DIR_PARTICIPANTS + "/" + spn + "/Events/" + relFileName,".json",
+//                                new SimpleDateFormat("yyyy-MM-dd_hh-mm-ss"));
 
 //        fileName = fNewFile.getAbsolutePath();
 //        fileName = relFileName;
@@ -747,7 +769,8 @@ public class DatabaseAccess {
 //            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
 //            //todo handle
 //        }
-        return strNewFile2;
+//        return relFileName;
+        return strNewFile;
     }
 
     public void SavePatEvtActivityResponse(TParticipantEventActivity actResp) {
@@ -767,12 +790,33 @@ public class DatabaseAccess {
             strSQL = strSQL + "'" + strDt + "');";
 
             db.execSQL(strSQL);
+
+            String strActTypeCode = "";
+            strSQL = "SELECT ActTypeCode FROM tProtRevEventActivity WHERE ProtRevEvtActId = " + actResp.getProtrevevtactid();
+            Cursor crs = db.rawQuery(strSQL, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Codes
+                strActTypeCode = crs.getString(crs.getColumnIndex("ActTypeCode"));      //Get Activity Type Code (only one row)
+            }
+            crs.close();
+
+            strSQL = "";
+            boolean bUpdCnt = false;
+            if (strActTypeCode.equals("P")) {
+                strSQL = "UPDATE tParticipantEvent SET PatEvtPictureCnt = PatEvtPictureCnt + 1";
+                bUpdCnt = true;
+            } else if (strActTypeCode.equals("Q")){
+                strSQL = "UPDATE tParticipantEvent SET PatEvtResponseCnt = PatEvtResponseCnt + 1";
+                bUpdCnt = true;
+            }
+            if (bUpdCnt) {
+                db.execSQL(strSQL);
+            }
         }
         catch (Exception e) {
             Log.e("DA:SavePatEvtActivityResponse:Ex", e.toString());
             //todo handle
         }
-        return;
     }
+
 
 }
