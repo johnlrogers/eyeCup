@@ -25,8 +25,6 @@ public class FileHelper {
         String line ;
         String strFile = null;
 
-        //todo Warning:(28, 45) String values are compared using '!=', not 'equals()'
-//        if (path.substring(path.length()-1) != "/") {
         if (!(path.substring(path.length()-1).equals("/"))) {
             path = path + "/";
         }
@@ -38,8 +36,6 @@ public class FileHelper {
 
             while ( (line = bufferedReader.readLine()) != null )
             {
-                //todo Warning:(39, 31) String concatenation as argument to 'StringBuilder.append()' call
-//                stringBuilder.append(line + System.getProperty("line.separator"));
                 stringBuilder.append(line);
                 stringBuilder.append(System.getProperty("line.separator"));
             }
@@ -80,8 +76,5 @@ public class FileHelper {
             //todo handle
         }
         return  false;
-
-
     }
-
-    }
+}

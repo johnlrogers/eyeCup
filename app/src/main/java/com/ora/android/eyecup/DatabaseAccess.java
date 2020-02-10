@@ -381,75 +381,22 @@ public class DatabaseAccess {
         }
     }
 
-//    public String TrySendJSONToServer(String filePath) throws Exception {
-//
-//        String attachmentName = filePath.substring(filePath.lastIndexOf("/") + 1);
-//        String attachmentFileName = attachmentName + ".json";
-//        String crlf = "\r\n";
-//        String twoHyphens = "--";
-//        String boundary =  "*****";
-//
-//        HttpURLConnection httpUrlConnection = null;
-//        URL url = new URL("http://mattpestillo.com"); //edit: change to destination url
-//        httpUrlConnection = (HttpURLConnection) url.openConnection();
-//        httpUrlConnection.setUseCaches(false);
-//        httpUrlConnection.setDoOutput(true);
-//
-//        httpUrlConnection.setRequestMethod("POST");
-//        httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
-//        httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
-//        httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
-//
-//        DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
-//
-//        List<Byte> bytesList = new ArrayList<Byte>();
-//        try (InputStream in = new FileInputStream(filePath)) {
-//            byte[] buf = new byte[1024];
-//            while (in.read(buf) > 0) {
-//                for (int i = 0; i < buf.length; i++)
-//                    bytesList.add(buf[i]);
-//            }
-//        }
-//        byte[] bytes = new byte[bytesList.size()];
-//        for (int i = 0; i < bytes.length; i++)
-//            bytes[i] = bytesList.get(i);
-//
-//        request.writeBytes(twoHyphens + boundary + crlf);
-//        request.writeBytes("Content-Disposition: form-data; name=\"" + attachmentName + "\";filename=\""
-//                + attachmentFileName + "\"" + crlf);
-//        request.writeBytes(crlf);
-//        request.write(bytes);
-//
-//        request.writeBytes(crlf);
-//        request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
-//
-//        request.flush();
-//        request.close();
-//
-//        InputStream responseStream = new BufferedInputStream(httpUrlConnection.getInputStream());
-//        BufferedReader responseStreamReader = new BufferedReader(new InputStreamReader(responseStream));
-//
-//        String line = "";
-//        StringBuilder stringBuilder = new StringBuilder();
-//
-//        while ((line = responseStreamReader.readLine()) != null) {
-//            stringBuilder.append(line).append("\n");
-//        }
-//        responseStreamReader.close();
-//
-//        responseStream.close();
-//        httpUrlConnection.disconnect();
-//
-//        return stringBuilder.toString();
-//    }
-
 //    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful
-    public String TrySendJSONToServer(String strURL, String filePath) {        //returns null if unsuccessful
+    public String TrySendJSONToServer(String strURL, String strPatEvtId, String filePath, String fileName) {        //returns null if unsuccessful
+
+    String response = "";
+//        AsyncThread asyncThread = new AsyncThread();
+        AsyncThread asyncThread = new AsyncThread(instance);
+    AsyncTask<String, Void, String> taskSendJSON = asyncThread.execute(strURL, strPatEvtId, filePath, fileName);
+    return response; //edit: get and return response synchronously
+}
+
+    public String TrySendPictureToServer(String strURL, String strPatEvtActId, String filePath, String fileName) {  //returns null if unsuccessful
 
         String response = "";
-        AsyncThread asyncThread = new AsyncThread();
-//        AsyncTask<String, Void, String> task = asyncThread.execute(filePath);
-        AsyncTask<String, Void, String> task = asyncThread.execute(strURL, filePath);
+//        AsyncPicThread asyncThread = new AsyncPicThread();
+        AsyncPicThread asyncThread = new AsyncPicThread(instance);
+        AsyncTask<String, Void, String> taskSendPic = asyncThread.execute(strURL, strPatEvtActId, filePath, fileName);
         return response; //edit: get and return response synchronously
     }
 
@@ -715,8 +662,8 @@ public class DatabaseAccess {
 
         File fNewFile = new File(ctx.getExternalFilesDir(strDir), strFile);
         String strNewFile = fNewFile.getAbsolutePath();
-        File fNewFile2 = new File(ctx.getFilesDir(), strFile);
-        String strNewFile2 = fNewFile2.getAbsolutePath();
+//        File fNewFile2 = new File(ctx.getFilesDir(), strFile);
+//        String strNewFile2 = fNewFile2.getAbsolutePath();
 
 //        String relFileName = GetStudyPatNumber();       //output JSON file name (timestamp will be appended automatically)
 //        String relFileName = GetStudyPatNumber() + "_" + strDt + ".json";       //output JSON file name
@@ -751,25 +698,12 @@ public class DatabaseAccess {
             //todo handle
         }
 //        try { MoveTo("files/" + relFileName, strNewFile2, true); }
-        try { MoveTo(relFileName, strNewFile2, true); }
-        catch (Exception e) {
-            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
-            //todo handle
-        }
-
-//        fileName = FormatFileName(APP_DIR_PARTICIPANTS + "/" + spn + "/Events/" + relFileName,".json",
-//                                new SimpleDateFormat("yyyy-MM-dd_hh-mm-ss"));
-
-//        fileName = fNewFile.getAbsolutePath();
-//        fileName = relFileName;
-//        try { MoveTo(FormatFileName(APP_DIR_PARTICIPANTS + "/" + relFileName, ".json", null), fileName, false); }
-//        try { MoveTo(FormatFileName("files/" + relFileName, ".json", null), fileName, false); }
-//        try { MoveTo(relFileName, fileName, false); }
+//        try { MoveTo(relFileName, strNewFile2, true); }
 //        catch (Exception e) {
 //            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
 //            //todo handle
 //        }
-//        return relFileName;
+
         return strNewFile;
     }
 
@@ -809,6 +743,7 @@ public class DatabaseAccess {
                 bUpdCnt = true;
             }
             if (bUpdCnt) {
+                strSQL = strSQL + " WHERE PatEvtId = " + actResp.getPatevtid();
                 db.execSQL(strSQL);
             }
         }
@@ -817,6 +752,4 @@ public class DatabaseAccess {
             //todo handle
         }
     }
-
-
 }
