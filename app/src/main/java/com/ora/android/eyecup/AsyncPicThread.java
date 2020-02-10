@@ -28,14 +28,14 @@ public class AsyncPicThread extends AsyncTask<String, Void, String> {
     @Override
     protected void onPostExecute(String result) {
         super.onPostExecute(result);
-        Log.e("AsyncPicThread:onPostExecute", result); // this is expecting a response code to be sent from your server upon receiving the POST data
+        Log.i("AsyncPicThread:onPostExecute", result); // this is expecting a response code to be sent from your server upon receiving the POST data
 
         if (result.equals("OK")) {
             try {
                 dba.open();                                                 //open db
                 dba.UpdateTParticipantEventActivityDtUpload(mlPatEvtActId); //set upload date
                 dba.close();                                                //close db
-                Log.i("AsyncPicThread", "UpdateTParticipantEventActivityDtUpload");
+                Log.d("AsyncPicThread", "UpdateTParticipantEventActivityDtUpload");
             } catch (NullPointerException e) {
                 Log.e("AsyncPicThread:dba.open:NPEx", e.toString());
                 //todo handle, try again?
@@ -105,7 +105,7 @@ public class AsyncPicThread extends AsyncTask<String, Void, String> {
 */
             iResponseCode = httpsUrlConnection.getResponseCode();                   //reponses
             strResponseMsg = httpsUrlConnection.getResponseMessage();
-            Log.i(attachmentFileName + " Upload Status - ", iResponseCode + " " + strResponseMsg);
+            Log.i(attachmentFileName + " Upload Status", iResponseCode + " " + strResponseMsg);
 //            Log.i("PicMSG" , strResponseMsg);
         }
         catch (Exception ex) {

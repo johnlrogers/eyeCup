@@ -16,7 +16,7 @@ public class Globals {
 
 //    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
     public static final boolean APP_DEMO_MODE = true;
-    public static final int APP_DEMO_MODE_MIN_OPEN = 0;
+    public static final int APP_DEMO_MODE_MIN_OPEN = 5;
     public static final int APP_DEMO_MODE_MIN_WARN = 10;
     public static final int APP_DEMO_MODE_MIN_EXPIRE = 15;
 
@@ -31,7 +31,7 @@ public class Globals {
     public static final int APP_DFLT_PAT_STUDYID = 999;
     public static final int APP_DFLT_PAT_LOCID = 999;
     public static final int APP_DFLT_PAT_NUM = 1;
-    public static final String APP_DFLT_PAT_STUDYPATNUM = "20-99-999-999-0001";
+    public static final String APP_DFLT_PAT_STUDYPATNUM = "20-01-001-001-0001";
 
     public static final String APP_FILE_PROTOCOLREVISION = "protocolrevision.json";
 
@@ -39,8 +39,14 @@ public class Globals {
     public static final String EYECUP_NOTIFY_CHANNEL = "com.ora.android.eyecup";
 
     public static final String ALWAYS_SVC_UPDATE_MSG = "AlwaysServiceMsg";
-    public static final int ALWAYS_SVC_TIMER_DELAY = 1000;
-    public static final int ALWAYS_SVC_TIMER_PERIOD = 10000;
+    public static final int ALWAYS_SVC_TIMER_DELAY = 1000;              //initial delay on starting loops first time
+    public static final int ALWAYS_SVC_TIMER_PERIOD = 10000;            //loop status check every 10 seconds
+    public static final int ALWAYS_SVC_UPLOAD_DLY_CNT = 3;              //delay starting upload data after event ends (loops * 10 = seconds)
+//    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 60;            //period to try to upload non-uploaded data (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 15;            //period to try to upload non-uploaded data (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_UPLOAD_PIC_DLY_CNT = 5;          //delay between pics (multiple of 1000 milliseconds)
+    public static final String MSG_IDLE = "Your next event is at ";
+    public static final String MSG_THANK_YOU = "Thank you for participating.  ";
 
     public static final int ALWAYS_SVC_STATE_CLOSED = 0;                //service closed
     public static final int ALWAYS_SVC_STATE_POLL = 1;                  //service is polling for events
@@ -48,12 +54,15 @@ public class Globals {
     public static final int ALWAYS_SVC_STATE_EVT_WIN_WARN = 3;          //an event window is open and warning threshold reached, not started
     public static final int ALWAYS_SVC_STATE_EVT_WIN_EXPIRE = 4;        //an event window has expired
     public static final int ALWAYS_SVC_STATE_EVT_WIN_RUNNING = 5;       //an event has been started
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_COMPLETE = 6;      //an event has been completed
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_UPLOAD = 7;        //upload an event
+    public static final int ALWAYS_SVC_STATE_CATCHUP_UPLOAD = 8;        //catchup on uploads
     public static final int ALWAYS_SVC_STATE_ADMIN = 200;               //Admin user logged in The admin screen is open
 
     public static final int ALWAYS_SVC_EVENT_NONE = 1100;               //no active events
     public static final int ALWAYS_SVC_EVENT_LOGIN = 1110;              //waiting event login
     public static final int ALWAYS_SVC_EVENT_LOGIN_FAIL = 1119;         //event login failed
-    public static final int ALWAYS_SVC_EVENT_STARTED = 1120;            //participant started event (protocol engine running)
+    public static final int ALWAYS_SVC_EVENT_START = 1120;              //participant started event (protocol engine running)
     public static final int ALWAYS_SVC_EVENT_ABORT = 1125;
     public static final int ALWAYS_SVC_EVENT_COMPLETE = 1130;
     public static final int ALWAYS_SVC_EVENT_LOGOUT = 1140;
@@ -80,7 +89,7 @@ public class Globals {
     public static final String APP_DIR_DATA = "databases";
     public static final String APP_DIR_DATA_ARCHIVE = "databases/Archive";
     public static final String APP_DIR_DATA_FRESH = "databases/Fresh";
-//    public static final String APP_DATA_DBNAME = "ORADb.db";
+
     public static final String APP_DATA_DBNAME = "ORADb_V6.db";
     public static final String APP_ASSET_DBNAME = "databases/ORADb_V6.db";
 
@@ -177,19 +186,15 @@ public class Globals {
                 fmtDt = new SimpleDateFormat("EEE, MMM d, yyyy hh:mm:ss aaa");
                 break;
         }
-
         str = fmtDt.format(dt);
 
         return str;
     }
 
     public byte[] ByteArrayFromString(String str) {
-
         int iLen;
         iLen = str.length();
-
         byte[] bytes = new byte[iLen+1];
-
         try {
             bytes = str.getBytes("UTF-8");
         } catch (UnsupportedEncodingException e){
@@ -200,10 +205,8 @@ public class Globals {
     }
 
     public String StringFromByteArray(byte[] bytes) {
-
         int iLen;
         String str = "";
-
         try {
             str = new String(bytes, "UTF-8");
         } catch (UnsupportedEncodingException e){

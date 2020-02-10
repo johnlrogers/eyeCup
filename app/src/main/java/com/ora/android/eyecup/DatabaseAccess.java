@@ -373,12 +373,18 @@ public class DatabaseAccess {
             //todo handle
         }
     }
-    public void MarkParticipantEventEnded(long patEvtId, String date) { //edit: call when ended
-        try { db.execSQL("UPDATE tParticipantEvent SET PatEvtDtEnd = '" + date + "' WHERE PatEvtId = " + patEvtId + ";"); }
+
+    public boolean MarkParticipantEventEnded(long patEvtId, String date) { //edit: call when ended
+        boolean bRet = false;
+        try {
+            db.execSQL("UPDATE tParticipantEvent SET PatEvtDtEnd = '" + date + "' WHERE PatEvtId = " + patEvtId + ";");
+            bRet = true;
+        }
         catch (Exception e) {
             Log.e("DA:MarkParticipantEventEnded:Ex", e.toString());
             //todo handle
         }
+        return bRet;
     }
 
 //    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful

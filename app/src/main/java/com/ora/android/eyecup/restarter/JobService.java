@@ -16,7 +16,7 @@ import androidx.annotation.RequiresApi;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class JobService extends android.app.job.JobService {
-    private static String TAG= JobService.class.getSimpleName();
+    private static String TAG = JobService.class.getSimpleName();
     private static RestartServiceBroadcastReceiver restartSensorServiceReceiver;
     private static JobService instance;
     private static JobParameters jobParameters;

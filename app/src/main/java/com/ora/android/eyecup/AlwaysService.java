@@ -42,6 +42,7 @@ import java.util.TimerTask;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_INSTRUCTION;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_PICTURE;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_QUESTION;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_CATCHUP_DLY_CNT;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_ABORT;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_COMPLETE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_LOGIN;
@@ -49,18 +50,23 @@ import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_LOGIN_FAIL;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_LOGOUT;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_NONE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_SAVED;
-import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_STARTED;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_START;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_UPLOAD_ABORT;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_UPLOAD_COMPLETE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_UPLOAD_STARTED;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_ADMIN;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_CATCHUP_UPLOAD;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_COMPLETE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_EXPIRE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_OPEN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_RUNNING;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_UPLOAD;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_WARN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_POLL;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_TIMER_DELAY;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_TIMER_PERIOD;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_UPLOAD_DLY_CNT;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_UPLOAD_PIC_DLY_CNT;
 import static com.ora.android.eyecup.Globals.APP_ASSET_DBNAME;
 import static com.ora.android.eyecup.Globals.APP_DATA_DBNAME;
 import static com.ora.android.eyecup.Globals.APP_DEMO_MODE;
@@ -90,6 +96,8 @@ import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_PW;
 import static com.ora.android.eyecup.Globals.LOGIN_PARTICPANT_ERR_ID;
 import static com.ora.android.eyecup.Globals.LOGIN_PARTICPANT_ERR_NO_ERR;
 import static com.ora.android.eyecup.Globals.LOGIN_PARTICPANT_ERR_PW;
+import static com.ora.android.eyecup.Globals.MSG_IDLE;
+import static com.ora.android.eyecup.Globals.MSG_THANK_YOU;
 import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_CHK;
 import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_LST;
 import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_NONE;
@@ -100,13 +108,16 @@ import static com.ora.android.eyecup.Globals.URL_PICTURE_UPLOAD;
 
 public class AlwaysService extends Service {
 
-//    protected static final int NOTIFICATION_ID = 2567;
+    private static String TAG = "AlwaysService";                            //Service Tag
+    private static AlwaysService mCurrentService;                           //Service object
+    private long mlCount = 0;                                               //Cycle counter (++ every ALWAYS_SVC_TIMER_PERIOD ms)
+    private long mlShowIdleCnt = 0;                                         //Ctr when to stop "thank you" after complete event
+    private long mlBeginEvtUploadCnt = 0;                                   //Ctr when to start upload after complete event
+    private long mlChkCatchupUploadCnt = 0;                                 //Ctr when to start upload after complete event
+
     private static Random random = new Random();
-    private static int iSeed = random.nextInt(9999 - 1001 ) + 1001;    //random 1001 to 9998
-    protected static final int NOTIFICATION_ID = iSeed;
-    private static String TAG = "AlwaysService";
-    private static AlwaysService mCurrentService;
-    private int counter = 0;
+    private static int iSeed = random.nextInt(9999 - 1001 ) + 1001;  //random 1001 to 9998
+    protected static final int NOTIFICATION_ID = iSeed;                     //App Svc Notifier ID
 
     private Globals glob;                                                   //global utilities
 
@@ -164,8 +175,6 @@ public class AlwaysService extends Service {
         GetPatFromDb();                         //get participant form database
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
 
-//        UploadNonUploadedEvents();              //upload data not uploaded
-
         restartForeground();                    //start service if not running
         mCurrentService = this;
     }
@@ -174,7 +183,7 @@ public class AlwaysService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
         Log.d(TAG, "onStartCommand");
-        counter = 0;
+        mlCount = 0;
 
         if (intent == null) {                               // Restart if it was killed by Android
             ProcessMainClass bck = new ProcessMainClass();
@@ -196,7 +205,7 @@ public class AlwaysService extends Service {
             Log.i(TAG, "restartForeground success");
                 startTimer();
         } catch (Exception e) {
-            Log.e(TAG, "AlwaysService:restartForeground:Ex: " + e.getMessage());
+            Log.e(TAG, "restartForeground:Ex: " + e.getMessage());
         }
     }
 
@@ -243,7 +252,6 @@ public class AlwaysService extends Service {
         Log.i(TAG, "initializeTimerTask()");
         timerTask = new TimerTask() {
             public void run() {
-//                Log.d(TAG, "Time running, timer loop: " + (counter++));     //todo turn off in release?
                 AlwaysServiceStateMachine();            //execute the State Machine
             }
         };
@@ -288,18 +296,14 @@ public class AlwaysService extends Service {
 
     /** Where am I in the state machine?  What should I be doing */ //todo Do something with state
     public int AlwaysServiceStateMachine() {
-//        Log.i(TAG, "AlwaysServiceStateMachine(), State: " + mPrevState + "->" + mState);                    //Log State
-//        Log.i(TAG, "AlwaysServiceStateMachine(), EventState: " + mPrevEventState + "->" + mEventState);     //Log Event State
 
         Intent intent;
 
         if ((mPrevState != mState) || (mPrevEventState != mEventState)){        //Service or Event State changed?
-//            if (mPrevState != mState) {
-                Log.i(TAG, "AlwaysServiceStateMachine(), State: " + mPrevState + " -> " + mState);                    //Log State
-//            }
-//            if (mPrevEventState != mEventState) {
-                Log.i(TAG, "AlwaysServiceStateMachine(), EventState: " + mPrevEventState + " -> " + mEventState);     //Log Event State
-//            }
+//            Log.i(TAG, "ASSM, State: " + mPrevState + " -> " + mState);                    //Log State
+//            Log.i(TAG, "ASSM, EventState: " + mPrevEventState + " -> " + mEventState);     //Log Event State
+            Log.i(TAG, "ASSM, SSt: " + mPrevState + " -> " + mState + ", ESt:" + mPrevEventState + " -> " + mEventState);   //Log State
+
             mPrevState = mState;                                                    //set Prev Svc state
             mPrevEventState = mEventState;                                          //set prev Event state
             String strNextEventTime;                                                //string for next event time
@@ -324,11 +328,11 @@ public class AlwaysService extends Service {
                     startActivity(intent);
                     break;
 
-                case ALWAYS_SVC_STATE_EVT_WIN_RUNNING:
-                    switch (mEventState) {
-                        case ALWAYS_SVC_EVENT_NONE:
-                        case ALWAYS_SVC_EVENT_LOGIN:
-                        case ALWAYS_SVC_EVENT_LOGIN_FAIL:
+                case ALWAYS_SVC_STATE_EVT_WIN_RUNNING:          //Running Event
+                    switch (mEventState) {                      //Event State?
+                        case ALWAYS_SVC_EVENT_NONE:                 //None
+                        case ALWAYS_SVC_EVENT_LOGIN:                //Login
+                        case ALWAYS_SVC_EVENT_LOGIN_FAIL:           //Login Fail
                             intent = new Intent(this, LoginActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             intent.putExtra("EventWindowState", mState);
@@ -336,25 +340,38 @@ public class AlwaysService extends Service {
                             intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                             startActivity(intent);
                             break;
-                        case ALWAYS_SVC_EVENT_STARTED:
-                            StartEvent();
-                            break;
-                        case ALWAYS_SVC_EVENT_ABORT:
-                            break;
-                        case ALWAYS_SVC_EVENT_COMPLETE:
 
-                            EndParticipantEvent(mCurPatEvt.getPatEvtId());      //close the current event
+                        case ALWAYS_SVC_EVENT_START:                //Start event?
+                            StartEvent();                               //Start Event
+                            break;
 
+                        case ALWAYS_SVC_EVENT_ABORT:                //Abort?
+                            break;
+
+                        case ALWAYS_SVC_EVENT_COMPLETE:             //Complete Event
+                            boolean bOK = false;
+                            mlBeginEvtUploadCnt = mlCount + ALWAYS_SVC_UPLOAD_DLY_CNT;      //set upload delay
+                            mlShowIdleCnt = mlBeginEvtUploadCnt - 1;                        //change message before upload
+                            mlChkCatchupUploadCnt = mlCount + ALWAYS_SVC_CATCHUP_DLY_CNT;   //set upload delay
+
+                            bOK = EndParticipantEvent(mCurPatEvt.getPatEvtId());            //close the current event
+                            //todo if not OK?
+
+//                            strNextEventTime = getNextEvtDtStr();                   //get next event time
                             strNextEventTime = setNextEvtDtStr();
+                            String strMsg = MSG_THANK_YOU;                          //thank you msg
+                            strMsg = strMsg + MSG_IDLE + strNextEventTime;          //Append time
+
                             intent = new Intent(this, IdleActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            intent.putExtra("ActTxt", "Thank you for participating.  Your next event is at " + strNextEventTime);
+                            intent.putExtra("ActTxt", strMsg);
                             intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                             startActivity(intent);
 
-                            mState = ALWAYS_SVC_STATE_POLL;
-
+                            mState = ALWAYS_SVC_STATE_EVT_WIN_COMPLETE;             //set service state complete
+                            mEventState = ALWAYS_SVC_EVENT_NONE;                    //set event state none
                             break;
+
                         case ALWAYS_SVC_EVENT_LOGOUT:
                             break;
                         case ALWAYS_SVC_EVENT_SAVED:
@@ -368,17 +385,59 @@ public class AlwaysService extends Service {
                         default:
                             break;
                     }
-
                     break;
+
+                case ALWAYS_SVC_STATE_EVT_WIN_COMPLETE:           //Upload Current State
+                    if ((mlCount > mlShowIdleCnt) && (mlShowIdleCnt > 0)) {    //Done showing thank you?
+                        mState = ALWAYS_SVC_STATE_POLL;                             //Set Polling state
+                        mlShowIdleCnt = 0;                                          //reset idle count
+                    }
+                    break;
+
+                case ALWAYS_SVC_STATE_EVT_WIN_UPLOAD:           //Upload Current State
+                    UploadParticipantEvent(mCurPatEvt.getPatEvtId());   //Upload the event
+                    mState = ALWAYS_SVC_STATE_POLL;                     //back to polling
+                    break;
+
+                case ALWAYS_SVC_STATE_CATCHUP_UPLOAD:          //Upload all state
+                    UploadNonUploadedEvents();                          //try to upload back events
+                    mState = ALWAYS_SVC_STATE_POLL;                     //back to polling
+                    break;
+
                 case ALWAYS_SVC_STATE_POLL:
                 default:
-                    strNextEventTime = getNextEvtDtStr();
+                    strNextEventTime = getNextEvtDtStr();                   //get next event time
+                    String strMsg = "";
+                    if (mlCount > mlShowIdleCnt) {                          //Show thank you message?
+                        strMsg = MSG_THANK_YOU;
+                    }
+                    strMsg = strMsg + MSG_IDLE + strNextEventTime;          //Append idle msg and time
+
                     intent = new Intent(this, IdleActivity.class);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    intent.putExtra("ActTxt", "Your next event is at " + strNextEventTime);
+//                    intent.putExtra("ActTxt", "Your next event is at " + strNextEventTime);
+                    intent.putExtra("ActTxt", strMsg);
                     intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                     startActivity(intent);
                     break;
+            }
+        }
+
+        if (mState == ALWAYS_SVC_STATE_EVT_WIN_COMPLETE) {          //Completed Event State?
+            if ((mlCount > mlShowIdleCnt) && (mlShowIdleCnt > 0)) {    //Done showing thank you?
+                mState = ALWAYS_SVC_STATE_POLL;                             //Set Polling state
+                mlShowIdleCnt = 0;                                          //reset idle count
+            }
+        }
+
+        if (mState == ALWAYS_SVC_STATE_POLL) {                                  //Polling?
+            if ((mlCount > mlBeginEvtUploadCnt) && (mlBeginEvtUploadCnt > 0 )){     //Idle long enough to start event upload?
+                mState = ALWAYS_SVC_STATE_EVT_WIN_UPLOAD;                               //Set Polling state
+                mlBeginEvtUploadCnt = 0;                                                //reset upload counter
+            }
+            if ((mlCount > mlChkCatchupUploadCnt) && (mlChkCatchupUploadCnt > 0 )) {    //Idle long enough to start catchup upload?
+                mState = ALWAYS_SVC_STATE_CATCHUP_UPLOAD;                                   //Set Polling state
+                mlChkCatchupUploadCnt = mlCount + ALWAYS_SVC_CATCHUP_DLY_CNT;               //set next catchup check                                                  //reset catchup count
             }
         }
         return getAlwaysServiceState();
@@ -512,21 +571,28 @@ public class AlwaysService extends Service {
 
     public int getNextEvtWinState() {
 
-        if (mState == ALWAYS_SVC_STATE_ADMIN) {     //Admin state?
-            return mState;                              //stay there
+        if (mState == ALWAYS_SVC_STATE_ADMIN) {             //Admin state?
+            return mState;                                      //stay there
         }
-
         if (mState == ALWAYS_SVC_STATE_EVT_WIN_RUNNING) {   //Event Running state?
+            return mState;                                      //stay there
+        }
+        if (mState == ALWAYS_SVC_STATE_EVT_WIN_COMPLETE) {   //Event Complete state?
+            return mState;                                      //stay there
+        }
+        if (mState == ALWAYS_SVC_STATE_EVT_WIN_UPLOAD) {    //Event Upload state?
+            return mState;                                      //stay there
+        }
+        if (mState == ALWAYS_SVC_STATE_CATCHUP_UPLOAD) {    //Event Catchup state?
             return mState;                                      //stay there
         }
 
         if (mDtNextEvtStart == null) {              //next not populated?
             setNextEvtDtStr();                          //populate next
         }
-
         LocalDateTime dtNow = LocalDateTime.now();  //get date/time
 
-        /////// If we get here, we know we are NOT Admin State, and NOT Already Running an Event ///////
+        /////// If we get here, we know we are NOT in the Admin State, and NOT Already Running an Event ///////
 
         if (mDtNextEvtStart.isBefore(dtNow)) {      //We are after event Window Open
             if (mDtNextEvtWarn.isBefore(dtNow)) {       //We are after Window Open, after Warn
@@ -544,33 +610,36 @@ public class AlwaysService extends Service {
                     mState = ALWAYS_SVC_STATE_EVT_WIN_OPEN;         //set Window Open
                 }
             }
-        } else {                                    //We are before event Window Open
-            mState = ALWAYS_SVC_STATE_POLL;             //Keep Polling
         }
         return mState;
     }
 
     /** Get current Always Service State */
     public int getAlwaysServiceState() {
-        Log.d(TAG, "Timer loop: Service State: EventState: " + (counter++) + ": " + mState + ": " + mEventState);         //Log State
-//        Log.d(TAG, "Time running, timer loop: " + (counter++));     //todo turn off in release?
+        String strLog = "Timer loop: Ctr:";
+        strLog = strLog + (mlCount++) + " SS:" + mState + " ES:" + mEventState;
+        strLog = strLog + ": Id:" + mlShowIdleCnt;
+        strLog = strLog + ": Upl:" + mlBeginEvtUploadCnt;
+        strLog = strLog + ": Cat:" + mlChkCatchupUploadCnt;
+
+        Log.i(TAG, strLog);         //Log State
 
         getNextEvtWinState();       //check for state update
         return mState;
     }
 
-    private int StartProtocol() {
-
-        mlCurProtRevId = mArrProtRev.get(setNextProtRevIdx()).getProtocolRevId();                                   //get Current Protocol Rev Id
-        mlCurProtRevEvtId = mArrProtRevEvt.get(setNextProtRevEvtIdx()).getProtocolRevEventId();                     //get Current Protocol Rev Event Id
-        mlCurProtRevEvtActId = mArrProtRevEvtAct.get(setNextProtRevEvtActIdx()).getProtocolRevEventActivityId();    //get Current Protocol Rev Event Activity Id
-
-        mlCurPatEvtId = StartParticipantEvent();
-
-        GotoEvtAct(miCurActIdx);
-
-        return miCurActIdx;
-    }
+//    private int StartProtocol() {
+//
+//        mlCurProtRevId = mArrProtRev.get(setNextProtRevIdx()).getProtocolRevId();                                   //get Current Protocol Rev Id
+//        mlCurProtRevEvtId = mArrProtRevEvt.get(setNextProtRevEvtIdx()).getProtocolRevEventId();                     //get Current Protocol Rev Event Id
+//        mlCurProtRevEvtActId = mArrProtRevEvtAct.get(setNextProtRevEvtActIdx()).getProtocolRevEventActivityId();    //get Current Protocol Rev Event Activity Id
+//
+//        mlCurPatEvtId = StartParticipantEvent();
+//
+//        GotoEvtAct(miCurActIdx);
+//
+//        return miCurActIdx;
+//    }
 
     /* Get the current participant from the database */
     private boolean GetDeviceFromDb() {
@@ -949,8 +1018,16 @@ public class AlwaysService extends Service {
 
     public int StartEvent() {
 
-//        mlCurPatEvtId = StartParticipantEvent(DatabaseAccess.getInstance(getApplicationContext()), dateFormat);
-        return StartProtocol();
+        mlCurProtRevId = mArrProtRev.get(setNextProtRevIdx()).getProtocolRevId();                                   //get Current Protocol Rev Id
+        mlCurProtRevEvtId = mArrProtRevEvt.get(setNextProtRevEvtIdx()).getProtocolRevEventId();                     //get Current Protocol Rev Event Id
+        mlCurProtRevEvtActId = mArrProtRevEvtAct.get(setNextProtRevEvtActIdx()).getProtocolRevEventActivityId();    //get Current Protocol Rev Event Activity Id
+
+        mlCurPatEvtId = StartParticipantEvent();
+
+        GotoEvtAct(miCurActIdx);
+
+        return miCurActIdx;
+//        return StartProtocol();
     }
 
     public String getStudyPatNumber() {
@@ -963,7 +1040,7 @@ public class AlwaysService extends Service {
         miCurActIdx++;                                              //increment activity index
         if (miCurActIdx == mArrProtRevEvtAct.size()) {              //passed end of array?
             setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
-            AlwaysServiceStateMachine();                                //exercise state machine
+//            AlwaysServiceStateMachine();                                //exercise state machine
             return miCurActIdx;                                         //bail, return index
         }
 
@@ -971,7 +1048,7 @@ public class AlwaysService extends Service {
             miCurActIdx++;                                                                              //increment again
             if (miCurActIdx == mArrProtRevEvtAct.size()) {              //passed end of array?
                 setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
-                AlwaysServiceStateMachine();                                //exercise state machine
+//                AlwaysServiceStateMachine();                                //exercise state machine
                 break;                                                      //bail
             }
         }
@@ -1027,7 +1104,7 @@ public class AlwaysService extends Service {
 
         if (iCurActIdx >= mArrProtRevEvtAct.size()) {   //activity index too high?
             setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
-            AlwaysServiceStateMachine();                                //exercise state machine
+//            AlwaysServiceStateMachine();                                //exercise state machine
             return;
         }
 
@@ -1147,12 +1224,13 @@ public class AlwaysService extends Service {
     public int setServiceEventState(int iNewState) {
 
         if (iNewState == LOGIN_PARTICPANT_ERR_NO_ERR) {
-            mEventState = ALWAYS_SVC_EVENT_STARTED;
+            mEventState = ALWAYS_SVC_EVENT_START;
             setServiceState(ALWAYS_SVC_STATE_EVT_WIN_RUNNING);
         } else {
             mEventState = iNewState;
         }
         AlwaysServiceStateMachine();
+//        Log.i(TAG + "setServicetate:", iNewState);
 
         return iNewState;
     }
@@ -1336,78 +1414,72 @@ public class AlwaysService extends Service {
         return oldEvtCnt;
     }
 
-    public String EndParticipantEvent(long lPatEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
-
+    //call each time a participant event ends
+    public boolean EndParticipantEvent(long lPatEvtId) {
+        boolean bRet = false;
         Globals glob = new Globals();
         String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());       //get datetime now
         String path = "";
-        String jsonSendResponse = "";
 
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
         try {
             dba.open();                                                         //open
             dba.MarkParticipantEventEnded(lPatEvtId, strDt);                    //mark event ended
+            bRet = true;
+        } catch (NullPointerException e ) {
+            Log.e(TAG + ":EndParticipantEvent:NPEx", e.toString());
+            //todo handle, try again?
+        } catch (Exception e) {
+            Log.e(TAG + ":EndParticipantEvent:Ex", e.toString());
+        } finally {
+            dba.close();
+        }
+        return bRet;
+    }
 
+    //Upload a specific Participant Event
+    public String UploadParticipantEvent(long lPatEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
+        String path = "";
+        String strFile = "";
+        String strPatEvtId = "";
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
+        try {
+            dba.open();                                                         //open
+
+            String strURL = URL_EVENT_UPLOAD + mCurDevice.getDeviceId() + "/" + mCurDevice.getDeviceAppId() + "/";  //get url
+//            strURL = "https://postman-echo.com/post";
+//            strURL = "https://icupapi.lionridgedev.com/v1/diary/basic";
+
+            strPatEvtId = Long.toString(lPatEvtId);                             //get PatEvtId
             path = dba.CreateJSON("vOuterPatEvtAll",           //create JSON output
                     "PatEventResponses",
                     "vInnerPatEvtAll",
                     "PatEventImages",
                     "vInnerPatEvtImagesAll",
                     lPatEvtId,
-                    getApplicationContext());
+                    getApplicationContext());                                   //full path of json object
 
-            String strURL = URL_EVENT_UPLOAD + mCurDevice.getDeviceId() + "/" + mCurDevice.getDeviceAppId() + "/";  //get url
-//            strURL = "https://postman-echo.com/post";
-//            strURL = "https://icupapi.lionridgedev.com/v1/diary/basic";
-
-            String strFile = "";
-            if (!path.equals("")) {
-                Path p = Paths.get(path);
-                strFile = p.getFileName().toString();                           //get filename only
-                dba.UpdateTParticipantEventFileName(lPatEvtId, strFile);        //update the tParticipantEvent json file name
+            if (!path.equals("")) {                                             //good path?
+                Path p = Paths.get(path);                                           //path object
+                strFile = p.getFileName().toString();                               //get filename only
+                dba.UpdateTParticipantEventFileName(lPatEvtId, strFile);            //update the tParticipantEvent json file name
             }
-            String strPatEvtId = Long.toString(lPatEvtId);                      //get PatEvtId
-
             dba.TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
             UploadParticipantEventPictures(lPatEvtId);                          //upload event pictures
 
         } catch (NullPointerException e ) {
-            Log.e("AlwaysService:EndParticipantEvent:NPEx", e.toString());
+            Log.e(TAG + ":EndParticipantEvent:NPEx", e.toString());
             //todo handle, try again?
         } catch (Exception e) {
-            Log.e("AlwaysService:EndParticipantEvent:Ex", e.toString());
+            Log.e(TAG + ":EndParticipantEvent:Ex", e.toString());
         } finally {
             dba.close();
         }
-        return path; //edit: also, before returning, start process to try uploading periodically, then call method in dba to mark it uploaded when done
+        return path;
     }
 
-    public boolean UploadNonUploadedEvents() {
-        boolean bRet = false;
-
-        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
-        try {
-            long lPatEvtId;
-            String strFile;
-
-            dba.open();                                                                 //open db
-            String strQry = "SELECT PatEvtId, PatEvtFileName FROM vPatEvtCompNoUpload";
-            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
-            while (crs.moveToNext()) {                                                  //Iterate Events
-                lPatEvtId = crs.getInt(crs.getColumnIndex("PatEvtId"));         //Get Id
-                strFile = crs.getString(crs.getColumnIndex("PatEvtFileName"));  //Get file name
-//                UploadParticipantEvent(lPatEvtId);
-                UploadParticipantEventPictures(lPatEvtId);
-            }
-            crs.close();
-            dba.close();
-        } catch (NullPointerException e) {
-            Log.e("AlwaysService:UploadNonUploadedEvents:NPEx", e.toString());
-            //todo handle
-        }
-        return bRet;
-    }
-
+    //upload pictures for a specific event
     public boolean UploadParticipantEventPictures(long lPatEvtId) {
         boolean bRet = false;
 
@@ -1425,37 +1497,77 @@ public class AlwaysService extends Service {
             }
             dba.open();                                                         //open db
             Cursor crs = dba.db.rawQuery(strQry, null);             //get cursor to view
-            while (crs.moveToNext()) {                                          //Iterate Events
+            try {
+                while (crs.moveToNext()) {                                          //Iterate Events
 
-                try {
-                    Thread.sleep(5000);                                         //no rush uploading pictures
-                } catch (InterruptedException e) {
-                    Log.e("AlwaysService:UploadParticipantEventPictures:Sleep:IntEx", e.toString());
-                    //todo handle
-                }
-                lPatEvtActId = crs.getInt(crs.getColumnIndex("PatEvtActId"));       //Get Id
-                strFile = crs.getString(crs.getColumnIndex("PatEvtActFileName"));   //Get file name
+                    try {
+                        Thread.sleep(1000 * ALWAYS_SVC_UPLOAD_PIC_DLY_CNT);     //no rush uploading pictures
+                    } catch (InterruptedException e) {
+                        Log.e(TAG + ":UploadParticipantEventPictures:Sleep:IntEx", e.toString());
+                        //todo handle
+                    }
+                    lPatEvtActId = crs.getInt(crs.getColumnIndex("PatEvtActId"));       //Get Id
+                    strFile = crs.getString(crs.getColumnIndex("PatEvtActFileName"));   //Get file name
 
-                try {
-                    String strURL = URL_PICTURE_UPLOAD + mCurDevice.getDeviceId() + "/" + mCurDevice.getDeviceAppId() + "/";  //get url
+                    try {
+                        String strURL = URL_PICTURE_UPLOAD + mCurDevice.getDeviceId() + "/" + mCurDevice.getDeviceAppId() + "/";  //get url
 //                    strURL = "https://postman-echo.com/post";
 //                    strURL = "https://icupapi.lionridgedev.com/v1/diary/basic";
-                    fPicFile = new File(getApplicationContext().getExternalFilesDir(strDir), strFile);  //get fully qualified file
-                    strPicFile = fPicFile.getAbsolutePath();                                        //get fully qualified path
-                    Log.d("AlwaysService:UploadParticipantEventPictures", strFile);
-                    String strPatEvtActId = Long.toString(lPatEvtActId);
-                    dba.TrySendPictureToServer(strURL, strPatEvtActId, strPicFile, strFile);
-                } catch (Exception e) {
-                    Log.e("AlwaysService:UploadParticipantEventPictures:Ex", e.toString());
+
+                        String strPatEvtActId = Long.toString(lPatEvtActId);                                //get Event Act Id
+                        fPicFile = new File(getApplicationContext().getExternalFilesDir(strDir), strFile);  //get fully qualified file
+                        strPicFile = fPicFile.getAbsolutePath();                                            //get fully qualified path
+                        Log.d(TAG + "::UploadParticipantEventPictures", strFile);
+
+                        dba.TrySendPictureToServer(strURL, strPatEvtActId, strPicFile, strFile);
+                    } catch (Exception e) {
+                        Log.e(TAG + ":UploadParticipantEventPictures:Ex", e.toString());
+                    }
                 }
+            } catch (Exception e) {
+                Log.e(TAG + ":UploadParticipantEventPictures:Ex", e.toString());
+            } finally {
+                if (crs != null) {
+                    crs.close();
+                }
+            }
+        } catch (NullPointerException e) {
+            Log.e(TAG + ":UploadParticipantEventPictures:NPEx", e.toString());
+            //todo handle
+        } finally {
+            if (dba != null) {
+                dba.close();
+            }
+        }
+        return bRet;
+    }
+    public boolean UploadNonUploadedEvents() {
+        boolean bRet = false;
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            long lPatEvtId;
+            String strFile;
+
+            dba.open();                                                                 //open db
+            String strQry = "SELECT PatEvtId, PatEvtFileName FROM vPatEvtCompNoUpload";
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Events
+                lPatEvtId = crs.getInt(crs.getColumnIndex("PatEvtId"));         //Get Id
+                strFile = crs.getString(crs.getColumnIndex("PatEvtFileName"));  //Get file name
+//                UploadParticipantEvent(lPatEvtId);
+//                UploadParticipantEventPictures(lPatEvtId);
+                //todo enable catchup loading
             }
             crs.close();
             dba.close();
         } catch (NullPointerException e) {
-            Log.e("AlwaysService:TryLogin:NPEx", e.toString());
+            Log.e("AlwaysService:UploadNonUploadedEvents:NPEx", e.toString());
             //todo handle
         }
         return bRet;
     }
+
+
 }
 
