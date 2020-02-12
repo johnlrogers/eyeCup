@@ -31,15 +31,20 @@
     <string name="review_pic">Reject to take the picture again, or Accept to continue..</string>
 
     <string name="admin_title">Participant Data</string>
-    <string name="admin_patient_id_prompt">Participant Id</string>
+    <string name="admin_year_prompt">Study Year (YY)</string>
+    <string name="admin_dept_prompt">Dept Num</string>
+    <string name="admin_location_prompt">Location Num</string>
+    <string name="admin_study_prompt">Study Num</string>
+    <string name="admin_patient_id_prompt">Participant Num</string>
     <string name="admin_password_prompt">Password</string>
     <string name="admin_password_confirm_prompt">Confirm Password</string>
-    <string name="admin_year_prompt">Study Year (2 digits)</string>
-    <string name="admin_location_prompt">Study Location Number</string>
-    <string name="admin_study_prompt">Study Number</string>
     <string name="admin_new_part">New Participant</string>
     <string name="admin_create_part">Create Participant</string>
-    <string name="admin_btn_save">Save Participant Data</string>
+    <string name="admin_btn_save_pat">Save Participant</string>
+    <string name="admin_btn_save_pat_pw">Save Participant</string>
+
+    <string name="admin_dvc_prompt">Device ID</string>
+    <string name="admin_btn_save_dvc">Save Device</string>
 
     <string name="main_title">Welcome</string>
     <string name="main_inst">Welcome</string>

@@ -2,7 +2,7 @@ package com.ora.android.eyecup.oradb;
 
 public class TDevice {
 
-    private long DeviceId;
+    private long DeviceId = 0;
 
     private String DeviceAppId;
 

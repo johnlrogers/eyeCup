@@ -25,13 +25,16 @@ public class Globals {
 
     public static final String URL_EVENT_UPLOAD =   "https://icupapi.lionridgedev.com/v1/diary/";
     public static final String URL_PICTURE_UPLOAD = "https://icupapi.lionridgedev.com/v1/photo/";
+//    public static final String URL_EVENT_UPLOAD =   "https://icupapi.lionridgedev.com/v1/diary/basic/";
+//    public static final String URL_PICTURE_UPLOAD = "https://icupapi.lionridgedev.com/v1/diary/basic/";
 
     public static final int APP_DFLT_PAT_ID = 1;
-    public static final int APP_DFLT_PAT_DEPTID = 99;
-    public static final int APP_DFLT_PAT_STUDYID = 999;
-    public static final int APP_DFLT_PAT_LOCID = 999;
+    public static final int APP_DFLT_PAT_DEPTID = 1;
+    public static final int APP_DFLT_PAT_STUDYID = 1;
+    public static final int APP_DFLT_PAT_LOCID = 1;
     public static final int APP_DFLT_PAT_NUM = 1;
     public static final String APP_DFLT_PAT_STUDYPATNUM = "20-01-001-001-0001";
+    public static final int MIN_PASSWORD_LEN = 4;
 
     public static final String APP_FILE_PROTOCOLREVISION = "protocolrevision.json";
 
@@ -41,22 +44,24 @@ public class Globals {
     public static final String ALWAYS_SVC_UPDATE_MSG = "AlwaysServiceMsg";
     public static final int ALWAYS_SVC_TIMER_DELAY = 1000;              //initial delay on starting loops first time
     public static final int ALWAYS_SVC_TIMER_PERIOD = 10000;            //loop status check every 10 seconds
-    public static final int ALWAYS_SVC_UPLOAD_DLY_CNT = 3;              //delay starting upload data after event ends (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_THANKYOU_DLY_CNT = 2;            //show the thank you message for (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_UPLOAD_DLY_CNT = 4;              //delay starting upload data after event ends (loops * 10 = seconds)
 //    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 60;            //period to try to upload non-uploaded data (loops * 10 = seconds)
     public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 15;            //period to try to upload non-uploaded data (loops * 10 = seconds)
     public static final int ALWAYS_SVC_UPLOAD_PIC_DLY_CNT = 5;          //delay between pics (multiple of 1000 milliseconds)
     public static final String MSG_IDLE = "Your next event is at ";
     public static final String MSG_THANK_YOU = "Thank you for participating.  ";
 
-    public static final int ALWAYS_SVC_STATE_CLOSED = 0;                //service closed
-    public static final int ALWAYS_SVC_STATE_POLL = 1;                  //service is polling for events
-    public static final int ALWAYS_SVC_STATE_EVT_WIN_OPEN = 2;          //an event window is open, not started
-    public static final int ALWAYS_SVC_STATE_EVT_WIN_WARN = 3;          //an event window is open and warning threshold reached, not started
-    public static final int ALWAYS_SVC_STATE_EVT_WIN_EXPIRE = 4;        //an event window has expired
-    public static final int ALWAYS_SVC_STATE_EVT_WIN_RUNNING = 5;       //an event has been started
-    public static final int ALWAYS_SVC_STATE_EVT_WIN_COMPLETE = 6;      //an event has been completed
-    public static final int ALWAYS_SVC_STATE_EVT_WIN_UPLOAD = 7;        //upload an event
-    public static final int ALWAYS_SVC_STATE_CATCHUP_UPLOAD = 8;        //catchup on uploads
+    public static final int ALWAYS_SVC_STATE_CLOSED = 0;                //service state no change
+    public static final int ALWAYS_SVC_STATE_POLL = 10;                 //service is polling for events
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_OPEN = 20;         //an event window is open, not started
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_WARN = 30;         //an event window is open and warning threshold reached, not started
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_EXPIRE = 40;       //an event window has expired
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_RUNNING = 50;      //an event has been started
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_COMPLETE = 60;     //an event has been completed
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_THANKYOU = 65;     //show thank you message
+    public static final int ALWAYS_SVC_STATE_EVT_WIN_UPLOAD = 70;       //upload an event
+    public static final int ALWAYS_SVC_STATE_CATCHUP_UPLOAD = 80;       //catchup on uploads
     public static final int ALWAYS_SVC_STATE_ADMIN = 200;               //Admin user logged in The admin screen is open
 
     public static final int ALWAYS_SVC_EVENT_NONE = 1100;               //no active events
@@ -70,15 +75,16 @@ public class Globals {
     public static final int ALWAYS_SVC_EVENT_UPLOAD_STARTED = 1160;
     public static final int ALWAYS_SVC_EVENT_UPLOAD_ABORT = 1165;
     public static final int ALWAYS_SVC_EVENT_UPLOAD_COMPLETE = 1169;
+    public static final int ALWAYS_SVC_EVENT_ADMIN = 2000;
 
-    public static final int LOGIN_PARTICPANT_ERR_NO_ERR = 10;
-    public static final int LOGIN_PARTICPANT_ERR_ID = 11;
-    public static final int LOGIN_PARTICPANT_ERR_PW = 12;
-    public static final int LOGIN_ADMIN_ERR_NO_ERR = 20;
-    public static final int LOGIN_ADMIN_ERR_ID = 21;
-    public static final int LOGIN_ADMIN_ERR_PW = 22;
-    public static final int LOGIN_ERR_UNK = 99;
-    public static final String LOGIN_ADMIN_NAME = "Admin";
+    public static final int LOGIN_PARTICPANT_ERR_NO_ERR = 100;
+    public static final int LOGIN_PARTICPANT_ERR_ID = 101;
+    public static final int LOGIN_PARTICPANT_ERR_PW = 102;
+    public static final int LOGIN_ADMIN_ERR_NO_ERR = 200;
+    public static final int LOGIN_ADMIN_ERR_ID = 201;
+    public static final int LOGIN_ADMIN_ERR_PW = 202;
+    public static final int LOGIN_ERR_UNK = 999;
+    public static final String LOGIN_ADMIN_NAME = "ADMIN";
     public static final String LOGIN_ADMIN_PW = "123456";
 
     public static final String APP_DIR_PROTOCOL = "Protocol";
@@ -162,6 +168,7 @@ public class Globals {
         }
 
     }
+
     public String GetDateStr(int iFormatCode, Date dt) {
         String str;
         SimpleDateFormat fmtDt;

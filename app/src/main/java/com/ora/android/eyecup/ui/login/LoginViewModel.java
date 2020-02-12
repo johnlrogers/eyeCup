@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModel;
 import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_ERR_PW;
 import static com.ora.android.eyecup.Globals.LOGIN_PARTICPANT_ERR_ID;
 import static com.ora.android.eyecup.Globals.LOGIN_PARTICPANT_ERR_PW;
+import static com.ora.android.eyecup.Globals.MIN_PASSWORD_LEN;
 
 public class LoginViewModel extends ViewModel {
 
@@ -87,7 +88,7 @@ public class LoginViewModel extends ViewModel {
 
     // A placeholder password validation check
     private boolean isPasswordValid(String password) {
-        return password != null && password.trim().length() > 5;
+        return password != null && password.trim().length() >= MIN_PASSWORD_LEN;
     }
 
 }

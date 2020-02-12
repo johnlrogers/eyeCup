@@ -44,6 +44,7 @@ import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_PICTURE;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_QUESTION;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_CATCHUP_DLY_CNT;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_ABORT;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_ADMIN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_COMPLETE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_LOGIN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_EVENT_LOGIN_FAIL;
@@ -60,9 +61,11 @@ import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_COMPLETE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_EXPIRE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_OPEN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_RUNNING;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_THANKYOU;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_UPLOAD;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_WARN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_POLL;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_THANKYOU_DLY_CNT;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_TIMER_DELAY;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_TIMER_PERIOD;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_UPLOAD_DLY_CNT;
@@ -295,11 +298,13 @@ public class AlwaysService extends Service {
     }
 
     /** Where am I in the state machine?  What should I be doing */ //todo Do something with state
-    public int AlwaysServiceStateMachine() {
+    public void AlwaysServiceStateMachine() {
 
         Intent intent;
 
-        if ((mPrevState != mState) || (mPrevEventState != mEventState)){        //Service or Event State changed?
+        if ((mPrevState != mState)
+                || (mPrevEventState != mEventState)
+                || (mlCount < mlShowIdleCnt)){        //Service or Event State changed, or still showing thank you?
 //            Log.i(TAG, "ASSM, State: " + mPrevState + " -> " + mState);                    //Log State
 //            Log.i(TAG, "ASSM, EventState: " + mPrevEventState + " -> " + mEventState);     //Log Event State
             Log.i(TAG, "ASSM, SSt: " + mPrevState + " -> " + mState + ", ESt:" + mPrevEventState + " -> " + mEventState);   //Log State
@@ -309,6 +314,16 @@ public class AlwaysService extends Service {
             String strNextEventTime;                                                //string for next event time
             String strExpireTime = getEvtExpireDtStr();                             //string for expire event time
             switch (mState) {                                                       //Switch Svc state
+//20200211
+                case ALWAYS_SVC_STATE_ADMIN:
+                    intent = new Intent(this, AdminActivity.class);     //Admin Activity
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    intent.putExtra("EventWindowState", mState);
+                    intent.putExtra("ExpireTime", strExpireTime);
+                    intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+                    startActivity(intent);
+                    break;
+//20200211 end
                 case ALWAYS_SVC_STATE_EVT_WIN_OPEN:                                     //Open?, or
                 case ALWAYS_SVC_STATE_EVT_WIN_WARN:                                     //Warn?
                     intent = new Intent(this, LoginActivity.class);         //Login Activity
@@ -350,17 +365,16 @@ public class AlwaysService extends Service {
 
                         case ALWAYS_SVC_EVENT_COMPLETE:             //Complete Event
                             boolean bOK = false;
+                            mlShowIdleCnt = mlCount + ALWAYS_SVC_THANKYOU_DLY_CNT;          //change message before upload
                             mlBeginEvtUploadCnt = mlCount + ALWAYS_SVC_UPLOAD_DLY_CNT;      //set upload delay
-                            mlShowIdleCnt = mlBeginEvtUploadCnt - 1;                        //change message before upload
                             mlChkCatchupUploadCnt = mlCount + ALWAYS_SVC_CATCHUP_DLY_CNT;   //set upload delay
 
                             bOK = EndParticipantEvent(mCurPatEvt.getPatEvtId());            //close the current event
                             //todo if not OK?
 
-//                            strNextEventTime = getNextEvtDtStr();                   //get next event time
-                            strNextEventTime = setNextEvtDtStr();
-                            String strMsg = MSG_THANK_YOU;                          //thank you msg
-                            strMsg = strMsg + MSG_IDLE + strNextEventTime;          //Append time
+                            strNextEventTime = setNextEvtDtStr();                           //set next event time
+                            String strMsg = MSG_THANK_YOU;                                  //thank you msg
+                            strMsg = strMsg + MSG_IDLE + strNextEventTime;                  //Append time
 
                             intent = new Intent(this, IdleActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -368,8 +382,9 @@ public class AlwaysService extends Service {
                             intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                             startActivity(intent);
 
-                            mState = ALWAYS_SVC_STATE_EVT_WIN_COMPLETE;             //set service state complete
-                            mEventState = ALWAYS_SVC_EVENT_NONE;                    //set event state none
+//                            mEventState = ALWAYS_SVC_EVENT_NONE;                    //set event state none
+//                            mState = ALWAYS_SVC_STATE_EVT_WIN_COMPLETE;             //set service state complete
+                            setServiceState(ALWAYS_SVC_STATE_EVT_WIN_THANKYOU, false);
                             break;
 
                         case ALWAYS_SVC_EVENT_LOGOUT:
@@ -388,28 +403,34 @@ public class AlwaysService extends Service {
                     break;
 
                 case ALWAYS_SVC_STATE_EVT_WIN_COMPLETE:           //Upload Current State
-                    if ((mlCount > mlShowIdleCnt) && (mlShowIdleCnt > 0)) {    //Done showing thank you?
-                        mState = ALWAYS_SVC_STATE_POLL;                             //Set Polling state
-                        mlShowIdleCnt = 0;                                          //reset idle count
-                    }
+//                    if ((mlCount > mlShowIdleCnt) && (mlShowIdleCnt > 0)) {    //Done showing thank you?
+//                        mlShowIdleCnt = 0;                                          //reset idle count
+////                        mState = ALWAYS_SVC_STATE_POLL;                             //Set Polling state
+//                        setServiceState(ALWAYS_SVC_STATE_EVT_WIN_THANKYOU, false);                             //Set Polling state
+//                    }
                     break;
 
                 case ALWAYS_SVC_STATE_EVT_WIN_UPLOAD:           //Upload Current State
                     UploadParticipantEvent(mCurPatEvt.getPatEvtId());   //Upload the event
-                    mState = ALWAYS_SVC_STATE_POLL;                     //back to polling
+//                    mState = ALWAYS_SVC_STATE_POLL;                     //back to polling
+                    setServiceState(ALWAYS_SVC_STATE_POLL, false);                             //Set Polling state
                     break;
 
                 case ALWAYS_SVC_STATE_CATCHUP_UPLOAD:          //Upload all state
                     UploadNonUploadedEvents();                          //try to upload back events
-                    mState = ALWAYS_SVC_STATE_POLL;                     //back to polling
+//                    mState = ALWAYS_SVC_STATE_POLL;                     //back to polling
+                    setServiceState(ALWAYS_SVC_STATE_POLL, false);                             //Set Polling state
                     break;
 
-                case ALWAYS_SVC_STATE_POLL:
+                case ALWAYS_SVC_STATE_EVT_WIN_THANKYOU:             //Thank you state
+                case ALWAYS_SVC_STATE_POLL:                         //polling state
                 default:
                     strNextEventTime = getNextEvtDtStr();                   //get next event time
                     String strMsg = "";
-                    if (mlCount > mlShowIdleCnt) {                          //Show thank you message?
+                    if (mlCount < mlShowIdleCnt) {                          //Show thank you message?
                         strMsg = MSG_THANK_YOU;
+                    } else {
+                        mlShowIdleCnt = 0;
                     }
                     strMsg = strMsg + MSG_IDLE + strNextEventTime;          //Append idle msg and time
 
@@ -423,24 +444,26 @@ public class AlwaysService extends Service {
             }
         }
 
-        if (mState == ALWAYS_SVC_STATE_EVT_WIN_COMPLETE) {          //Completed Event State?
+        if ((mState == ALWAYS_SVC_STATE_EVT_WIN_THANKYOU)           //Thank you state?, or
+            || (mState == ALWAYS_SVC_STATE_POLL)) {                 //Polling you state??
             if ((mlCount > mlShowIdleCnt) && (mlShowIdleCnt > 0)) {    //Done showing thank you?
-                mState = ALWAYS_SVC_STATE_POLL;                             //Set Polling state
                 mlShowIdleCnt = 0;                                          //reset idle count
+//                setServiceState(ALWAYS_SVC_STATE_POLL, true);   //Set Polling state
+                setServiceEventState(ALWAYS_SVC_EVENT_NONE);                //reset svc event state
             }
         }
 
         if (mState == ALWAYS_SVC_STATE_POLL) {                                  //Polling?
             if ((mlCount > mlBeginEvtUploadCnt) && (mlBeginEvtUploadCnt > 0 )){     //Idle long enough to start event upload?
-                mState = ALWAYS_SVC_STATE_EVT_WIN_UPLOAD;                               //Set Polling state
                 mlBeginEvtUploadCnt = 0;                                                //reset upload counter
+                setServiceState(ALWAYS_SVC_STATE_EVT_WIN_UPLOAD, false);                             //Set Polling state
             }
             if ((mlCount > mlChkCatchupUploadCnt) && (mlChkCatchupUploadCnt > 0 )) {    //Idle long enough to start catchup upload?
-                mState = ALWAYS_SVC_STATE_CATCHUP_UPLOAD;                                   //Set Polling state
                 mlChkCatchupUploadCnt = mlCount + ALWAYS_SVC_CATCHUP_DLY_CNT;               //set next catchup check                                                  //reset catchup count
+                setServiceState(ALWAYS_SVC_STATE_CATCHUP_UPLOAD,false);                             //Set Polling state
             }
         }
-        return getAlwaysServiceState();
+        getAlwaysServiceState();        //check for state machine changes for next cycle
     }
 
     //return ProtRevIdx
@@ -509,22 +532,22 @@ public class AlwaysService extends Service {
 
     public String setNextEvtDtStr() {
 
-        LocalDateTime locDt = LocalDateTime.now();
-//        LocalDateTime locDtFlr =  locDt.truncatedTo(ChronoUnit.MINUTES);
-        LocalDateTime locDtCeiling =  locDt.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
+        LocalDateTime locDt = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
+        LocalDateTime locDtFlr =  locDt.truncatedTo(ChronoUnit.MINUTES);
+//        LocalDateTime locDtCeiling =  locDt.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
         DateTimeFormatter fmtDt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
         if (APP_DEMO_MODE) {
-            mDtNextEvtStart = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_OPEN);
-            mDtNextEvtWarn = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_WARN);
-            mDtNextEvtExpire = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
+            mDtNextEvtStart = locDt.plusMinutes(APP_DEMO_MODE_MIN_OPEN);
+            mDtNextEvtWarn = locDt.plusMinutes(APP_DEMO_MODE_MIN_WARN);
+            mDtNextEvtExpire = locDt.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
         } else {
             DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
             try {
                 dba.open();                                                                 //open db
-                mDtNextEvtStart = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_OPEN);        //todo get actual next
-                mDtNextEvtWarn = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_WARN);
-                mDtNextEvtExpire = locDtCeiling.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
+                mDtNextEvtStart = locDt.plusMinutes(APP_DEMO_MODE_MIN_OPEN);        //todo get actual next
+                mDtNextEvtWarn = locDt.plusMinutes(APP_DEMO_MODE_MIN_WARN);
+                mDtNextEvtExpire = locDt.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
 
                 dba.close();
             } catch (NullPointerException e) {
@@ -598,18 +621,26 @@ public class AlwaysService extends Service {
             if (mDtNextEvtWarn.isBefore(dtNow)) {       //We are after Window Open, after Warn
                 if (mDtNextEvtExpire.isBefore(dtNow)) {       //We are after Warn and after Expire
                     if (mState != ALWAYS_SVC_STATE_EVT_WIN_EXPIRE) {    //Not EXPIRE?
-                        mState = ALWAYS_SVC_STATE_EVT_WIN_EXPIRE;           //set Expired
+//                        mState = ALWAYS_SVC_STATE_EVT_WIN_EXPIRE;           //set Expired
+                        setServiceState(ALWAYS_SVC_STATE_EVT_WIN_EXPIRE, true);                             //Set Polling state
                     }
                 } else {                                    //We are after Warn but before Expire
                     if (mState != ALWAYS_SVC_STATE_EVT_WIN_WARN) {  //Not WARN?
-                        mState = ALWAYS_SVC_STATE_EVT_WIN_WARN;         //set Warn
+//                        mState = ALWAYS_SVC_STATE_EVT_WIN_WARN;         //set Warn
+                        setServiceState(ALWAYS_SVC_STATE_EVT_WIN_WARN, true);                             //Set Polling state
                     }
                 }
             } else {                                    //Otherwise, We are after Window Open, but before Warn
                 if (mState != ALWAYS_SVC_STATE_EVT_WIN_OPEN) {  //Not WIN OPEN?
-                    mState = ALWAYS_SVC_STATE_EVT_WIN_OPEN;         //set Window Open
+//                    mState = ALWAYS_SVC_STATE_EVT_WIN_OPEN;         //set Window Open
+                    setServiceState(ALWAYS_SVC_STATE_EVT_WIN_OPEN, true);                             //Set Polling state
                 }
             }
+        }
+        else {                                      //otherwise
+//            mState = ALWAYS_SVC_STATE_POLL;             //keep polling
+            setServiceState(ALWAYS_SVC_STATE_POLL, false);                             //Set Polling state
+
         }
         return mState;
     }
@@ -680,16 +711,16 @@ public class AlwaysService extends Service {
             while (crs.moveToNext()) {                                                  //Iterate Cursor
                                                                                             //set current Participant
                 mCurPat.setPatId(crs.getLong(crs.getColumnIndex("PatId")));             //PatId
-                mCurPat.setPatYearId(crs.getLong(crs.getColumnIndex("PatYearId")));     //YearId
-                mCurPat.setPatDeptId(crs.getLong(crs.getColumnIndex("PatDeptId")));     //DeptId
-                mCurPat.setPatStudyId(crs.getLong(crs.getColumnIndex("PatStudyId")));   //StudyId
-                mCurPat.setPatLocationId(crs.getLong(crs.getColumnIndex("PatLocationId")));     //LocationId
+                mCurPat.setPatYearId(crs.getInt(crs.getColumnIndex("PatYearId")));     //YearId
+                mCurPat.setPatDeptId(crs.getInt(crs.getColumnIndex("PatDeptId")));     //DeptId
+                mCurPat.setPatStudyId(crs.getInt(crs.getColumnIndex("PatStudyId")));   //StudyId
+                mCurPat.setPatLocationId(crs.getInt(crs.getColumnIndex("PatLocationId")));     //LocationId
                 mCurPat.setPatNumber(crs.getInt(crs.getColumnIndex("PatNumber")));      //Pat number
                 String strFQPatNumber = crs.getString(crs.getColumnIndex("StudyPatNumber"));    //full qualify num
                 if (strFQPatNumber.length() == 0) {
                     //todo format the fully qualified number if empty
                 }
-                mCurPat.setStudypatnumber(strFQPatNumber);                              //fully qualify patient number
+                mCurPat.setStudyPatNumber(strFQPatNumber);                              //fully qualify patient number
 
                 mstrPatFilesRoot = strFQPatNumber;
             }
@@ -705,7 +736,7 @@ public class AlwaysService extends Service {
             mCurPat.setPatStudyId(APP_DFLT_PAT_STUDYID);    //StudyId
             mCurPat.setPatLocationId(APP_DFLT_PAT_LOCID);   //LocationId
             mCurPat.setPatNumber(APP_DFLT_PAT_NUM);         //Pat number
-            mCurPat.setStudypatnumber(APP_DFLT_PAT_STUDYPATNUM); //fully qualify patient number
+            mCurPat.setStudyPatNumber(APP_DFLT_PAT_STUDYPATNUM); //fully qualify patient number
 
             return true;
         }
@@ -1008,7 +1039,8 @@ public class AlwaysService extends Service {
 //            if (APP_DEMO_MODE) {                            //if demo mode
 //                mState = ALWAYS_SVC_STATE_EVT_WIN_OPEN;         //go straight to open event //todo not needed
 //            } else {                                         //otherwise
-                mState = ALWAYS_SVC_STATE_POLL;                 //start polling
+//20200212 move to setServiceEventState
+//                mState = ALWAYS_SVC_STATE_POLL;                 //start polling
 //            }
 //            mEventState = ALWAYS_SVC_EVENT_NONE;            //No event in progress
             setServiceEventState(ALWAYS_SVC_EVENT_NONE);    //
@@ -1032,14 +1064,15 @@ public class AlwaysService extends Service {
 
     public String getStudyPatNumber() {
 //        return mstrPatNumber;
-        return mCurPat.getStudypatnumber();
+        return mCurPat.getStudyPatNumber();
     }
 
     /* Get next Activity Index in the Event */
     public int setNextActivityIdx() {
         miCurActIdx++;                                              //increment activity index
+//20200212 check is in ASSM
         if (miCurActIdx == mArrProtRevEvtAct.size()) {              //passed end of array?
-            setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
+//            setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
 //            AlwaysServiceStateMachine();                                //exercise state machine
             return miCurActIdx;                                         //bail, return index
         }
@@ -1047,7 +1080,7 @@ public class AlwaysService extends Service {
         while (mArrProtRevEvtAct.get(miCurActIdx).getProtocolRevEventId() != mlCurProtRevEvtId) {   //different event?
             miCurActIdx++;                                                                              //increment again
             if (miCurActIdx == mArrProtRevEvtAct.size()) {              //passed end of array?
-                setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
+//                setServiceEventState(ALWAYS_SVC_EVENT_COMPLETE);            //set event complete
 //                AlwaysServiceStateMachine();                                //exercise state machine
                 break;                                                      //bail
             }
@@ -1220,33 +1253,69 @@ public class AlwaysService extends Service {
         }
     }
 
-    /** set service state */
-    public int setServiceEventState(int iNewState) {
+    public void saveAdminChanges () {
+        refreshParticipant();
+        refreshDevice();
+        setServiceState(ALWAYS_SVC_STATE_POLL, false);
 
-        if (iNewState == LOGIN_PARTICPANT_ERR_NO_ERR) {
-            mEventState = ALWAYS_SVC_EVENT_START;
-            setServiceState(ALWAYS_SVC_STATE_EVT_WIN_RUNNING);
-        } else {
-            mEventState = iNewState;
+    }
+    public void refreshParticipant() {
+        GetPatFromDb();                         //get participant form database
+    }
+
+    public void refreshDevice() {
+        GetDeviceFromDb();                      //get participant form database
+    }
+
+    public void setLoginEvtState(int iEvtState) {
+        if (iEvtState == LOGIN_PARTICPANT_ERR_NO_ERR) {         //Evt State Part Login
+            setServiceEventState(ALWAYS_SVC_EVENT_START);           //start an event
+        } else if (iEvtState == LOGIN_ADMIN_ERR_NO_ERR) {       //admin login?
+            setServiceEventState(ALWAYS_SVC_EVENT_ADMIN);           //start admin
         }
-        AlwaysServiceStateMachine();
-//        Log.i(TAG + "setServicetate:", iNewState);
-
-        return iNewState;
     }
 
     /** set service state */
-    public int setServiceState(int iNewState) {
+    public void setServiceEventState(int iNewState) {
+
+        mEventState = iNewState;                                //set new state
+        switch (mEventState) {
+            case ALWAYS_SVC_EVENT_START:                        //Evt State Start Event
+                setServiceState(ALWAYS_SVC_STATE_EVT_WIN_RUNNING, true);      //set event running
+                break;
+            case ALWAYS_SVC_EVENT_ADMIN:                        //Event state admin?
+                setServiceState(ALWAYS_SVC_STATE_ADMIN, true);                //set state admin
+                break;
+//            case ALWAYS_SVC_EVENT_COMPLETE:                     //Event state complete
+//                setServiceState(ALWAYS_SVC_STATE_EVT_WIN_COMPLETE, false); //set state complete
+//                break;
+            case ALWAYS_SVC_EVENT_NONE:                         //Event state no event
+                setServiceState(ALWAYS_SVC_STATE_POLL, true);             //set state polling
+                break;
+            case ALWAYS_SVC_EVENT_COMPLETE:                     //Event state complete, no reason to change Service state; force ASSM do that now
+                setServiceState(mState, true);          //no change to state, but force State machine
+                break;
+            default:                                            //otherwise
+                setServiceState(mState, false);         //no change to state, do not force State machine
+                break;
+        }
+    }
+
+    /** set service state */
+    public int setServiceState(int iNewState, boolean bForceStMach) {
 
         mState = iNewState;
-        AlwaysServiceStateMachine();
+        if (bForceStMach) {
+            AlwaysServiceStateMachine();
+        }
 
         return iNewState;
     }
 
     public int TryLogin(String username, String password) {
 
-        if (username.equals(LOGIN_ADMIN_NAME)) {        //admin user name?
+//        if (username.equals(LOGIN_ADMIN_NAME)) {        //admin user name?
+        if (username.toUpperCase().equals(LOGIN_ADMIN_NAME)) {        //admin user name?
             if (password.equals(LOGIN_ADMIN_PW)) {          //password OK?
                 return LOGIN_ADMIN_ERR_NO_ERR;                  //return admin login
             } else {                                        //otherwise
@@ -1487,7 +1556,7 @@ public class AlwaysService extends Service {
         try {
             long lPatEvtActId;
             String strFile;
-            String strDir = APP_DIR_PARTICIPANTS + "/" + mCurPat.getStudypatnumber() + APP_DIR_PARTICIPANT_PICS;
+            String strDir = APP_DIR_PARTICIPANTS + "/" + mCurPat.getStudyPatNumber() + APP_DIR_PARTICIPANT_PICS;
             File fPicFile;
             String strPicFile;
 

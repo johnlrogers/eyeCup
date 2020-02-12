@@ -115,11 +115,11 @@ public class TParticipantEvent {
         this.SiteId=SiteId;
     }
 
-    public String getStudypatnumber(){
+    public String getStudyPatNumber(){
         return StudyPatNumber;
     }
 
-    public void setStudypatnumber(String StudyPatNumber){
+    public void setStudyPatNumber(String StudyPatNumber){
         this.StudyPatNumber=StudyPatNumber;
     }
 

@@ -63,5 +63,4 @@ public class IdleActivity extends AppCompatActivity {
             isBound = false;
         }
     };
-
 }

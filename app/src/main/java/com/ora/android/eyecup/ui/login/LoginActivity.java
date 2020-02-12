@@ -33,6 +33,7 @@ import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_EXPIRE;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_OPEN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_EVT_WIN_WARN;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_STATE_POLL;
+import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_ERR_NO_ERR;
 import static com.ora.android.eyecup.Globals.LOGIN_PARTICPANT_ERR_NO_ERR;
 
 public class LoginActivity extends AppCompatActivity {
@@ -180,9 +181,15 @@ public class LoginActivity extends AppCompatActivity {
 
         int iLoginState = alwaysService.TryLogin(strUser, strPW);
         if (iLoginState == LOGIN_PARTICPANT_ERR_NO_ERR) {
-            alwaysService.setServiceEventState(LOGIN_PARTICPANT_ERR_NO_ERR);
+//            alwaysService.setServiceEventState(LOGIN_PARTICPANT_ERR_NO_ERR);
+            alwaysService.setLoginEvtState(LOGIN_PARTICPANT_ERR_NO_ERR);
         }
-
+//20200211
+        if (iLoginState == LOGIN_ADMIN_ERR_NO_ERR) {
+//            alwaysService.setServiceEventState(LOGIN_ADMIN_ERR_NO_ERR);
+            alwaysService.setLoginEvtState(LOGIN_ADMIN_ERR_NO_ERR);
+        }
+//20200211 end
         loginViewModel.loginMessage(iLoginState);
     }
 

@@ -18,6 +18,8 @@ import com.ora.android.eyecup.json.PatEventPicture;
 import com.ora.android.eyecup.json.PatEventResponse;
 import com.ora.android.eyecup.json.ProtocolRevEvent;
 import com.ora.android.eyecup.json.ProtocolRevision;
+import com.ora.android.eyecup.oradb.TDevice;
+import com.ora.android.eyecup.oradb.TParticipant;
 import com.ora.android.eyecup.oradb.TParticipantEvent;
 import com.ora.android.eyecup.oradb.TParticipantEventActivity;
 
@@ -126,15 +128,50 @@ public class DatabaseAccess {
         return objJSON;
     }
     //call the "open" method before calling these methods below, and call the "close" method after each method call
-    public boolean SetParticipantInfo(boolean newPat, String patNum, String studyPatNum, String password) { //returns "true" if successful
+//    public boolean SetParticipantInfo(boolean newPat, String patNum, String studyPatNum, String password) { //returns "true" if successful
+    //todo IF ever more than one participant per device (shouldn't be)
+    public boolean SetParticipantInfo(boolean newPat, boolean bChgPW, TParticipant pat) { //returns "true" if successful
         boolean success = false;
         String sqlCmd;
-        if (!newPat)
-            sqlCmd = "UPDATE tParticipant SET PatNumber = " + patNum + ", StudyPatNumber = " + studyPatNum + ", Password = "
-                    + password + ";";
-        else
-            sqlCmd = "INSERT INTO tParticipant (PatNumber, StudyPatNumber, Password) VALUES (" + patNum + ", " + studyPatNum + ", "
-                    + password + ");";
+        if (!newPat){
+            sqlCmd = "UPDATE tParticipant SET PatNumber = " + pat.getPatNumber();
+            sqlCmd = sqlCmd + ", PatYearId = " + pat.getPatYearId();
+            sqlCmd = sqlCmd + ", PatDeptId  = " + pat.getPatDeptId();
+            sqlCmd = sqlCmd + ", PatStudyId = " + pat.getPatStudyId();
+            sqlCmd = sqlCmd + ", PatLocationId = " + pat.getPatLocationId();
+            sqlCmd = sqlCmd + ", StudyPatNumber = '" + pat.getStudyPatNumber() +"'";
+            if (bChgPW) {
+                sqlCmd = sqlCmd + ", Password = '" + pat.getPassword() + "'";
+            }
+            sqlCmd = sqlCmd + ";";
+        }
+        else {
+            sqlCmd = "INSERT INTO tParticipant (PatNumber, PatYearId, PatDeptId, PatStudyId, PatLocationId, StudyPatNumber, Password) VALUES (";
+            sqlCmd = sqlCmd + pat.getPatNumber();
+            sqlCmd = sqlCmd + ", " + pat.getPatYearId();
+            sqlCmd = sqlCmd + ", " + pat.getPatDeptId();
+            sqlCmd = sqlCmd + ", " + pat.getPatStudyId();
+            sqlCmd = sqlCmd + ", " + pat.getPatLocationId();
+            sqlCmd = sqlCmd + ", '" + pat.getStudyPatNumber() + "'";
+            sqlCmd = sqlCmd + ", '" + pat.getPassword() + "')";
+        }
+        try {
+            db.execSQL(sqlCmd);
+            success = true;
+        }
+        catch (Exception e) {
+            Log.e("DA:SetParticipantInfo:Ex", e.toString());
+            //todo handle
+        }
+        return success;
+    }
+
+    //todo IF ever more than one device (shouldn't be)
+    public boolean SetDeviceInfo(TDevice dvc) { //returns "true" if successful
+        boolean success = false;
+        String sqlCmd;
+
+        sqlCmd = "UPDATE tDevice SET DeviceAppId = '" + dvc.getDeviceAppId() + "'";
         try {
             db.execSQL(sqlCmd);
             success = true;
@@ -177,6 +214,63 @@ public class DatabaseAccess {
         c.close();
         return selectedVals;
     }
+//20200211
+    //get the participant (should be only one)
+    public TParticipant getParticipant() {
+
+        TParticipant pat = new TParticipant();
+        String strQry = "SELECT * FROM tParticipant LIMIT 1;";
+        Cursor crs = null;
+        try {
+            crs = db.rawQuery(strQry, null);
+            while (crs.moveToNext()) {                                                      //Iterate Cursor
+                pat.setPatId(crs.getLong(crs.getColumnIndex("PatId")));
+                pat.setPatYearId(crs.getInt(crs.getColumnIndex("PatYearId")));
+                pat.setPatDeptId(crs.getInt(crs.getColumnIndex("PatDeptId")));
+                pat.setPatStudyId(crs.getInt(crs.getColumnIndex("PatStudyId")));
+                pat.setPatLocationId(crs.getInt(crs.getColumnIndex("PatLocationId")));
+                pat.setPatNumber(crs.getInt(crs.getColumnIndex("PatNumber")));
+                pat.setStudyPatNumber(crs.getString(crs.getColumnIndex("StudyPatNumber")));
+                pat.setPassword(crs.getString(crs.getColumnIndex("Password")));
+            }
+            crs.close();
+        }
+        catch (Exception e) {
+            Log.e("DA:getParticipant:Ex", e.toString());
+            //todo handle
+        } finally {
+            if (crs != null) {
+                crs.close();
+            }
+        }
+        return pat;
+    }
+
+    //get the device (should be only one)
+    public TDevice getDevice() {
+
+        TDevice dvc = new TDevice();
+        String strQry = "SELECT * FROM tDevice LIMIT 1;";
+        Cursor crs = null;
+        try {
+            crs = db.rawQuery(strQry, null);
+            while (crs.moveToNext()) {                                                      //Iterate Cursor
+                dvc.setDeviceId(crs.getLong(crs.getColumnIndex("DeviceId")));
+                dvc.setDeviceAppId(crs.getString(crs.getColumnIndex("DeviceAppId")));
+            }
+            crs.close();
+        }
+        catch (Exception e) {
+            Log.e("DA:getParticipant:Ex", e.toString());
+            //todo handle
+        } finally {
+            if (crs != null) {
+                crs.close();
+            }
+        }
+        return dvc;
+    }
+//20200211 end
 
     public List<Object[]> GetTableData(String tblName) { //first row is column names
         try { c = db.rawQuery("SELECT * FROM " + tblName + ";", new String[] { }); }
@@ -385,25 +479,6 @@ public class DatabaseAccess {
             //todo handle
         }
         return bRet;
-    }
-
-//    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful
-    public String TrySendJSONToServer(String strURL, String strPatEvtId, String filePath, String fileName) {        //returns null if unsuccessful
-
-    String response = "";
-//        AsyncThread asyncThread = new AsyncThread();
-        AsyncThread asyncThread = new AsyncThread(instance);
-    AsyncTask<String, Void, String> taskSendJSON = asyncThread.execute(strURL, strPatEvtId, filePath, fileName);
-    return response; //edit: get and return response synchronously
-}
-
-    public String TrySendPictureToServer(String strURL, String strPatEvtActId, String filePath, String fileName) {  //returns null if unsuccessful
-
-        String response = "";
-//        AsyncPicThread asyncThread = new AsyncPicThread();
-        AsyncPicThread asyncThread = new AsyncPicThread(instance);
-        AsyncTask<String, Void, String> taskSendPic = asyncThread.execute(strURL, strPatEvtActId, filePath, fileName);
-        return response; //edit: get and return response synchronously
     }
 
     public void MarkParticipantEventUploaded(ParticipantEvent newEvent) { //edit: call when uploaded
@@ -712,6 +787,24 @@ public class DatabaseAccess {
 
         return strNewFile;
     }
+
+    //    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful
+    public String TrySendJSONToServer(String strURL, String strPatEvtId, String filePath, String fileName) {        //returns null if unsuccessful
+
+        String response = "";
+        AsyncThread asyncThread = new AsyncThread(instance);
+        AsyncTask<String, Void, String> taskSendJSON = asyncThread.execute(strURL, strPatEvtId, filePath, fileName);
+        return response; //edit: get and return response synchronously
+    }
+
+    public String TrySendPictureToServer(String strURL, String strPatEvtActId, String filePath, String fileName) {  //returns null if unsuccessful
+
+        String response = "";
+        AsyncPicThread asyncThread = new AsyncPicThread(instance);
+        AsyncTask<String, Void, String> taskSendPic = asyncThread.execute(strURL, strPatEvtActId, filePath, fileName);
+        return response; //edit: get and return response synchronously
+    }
+
 
     public void SavePatEvtActivityResponse(TParticipantEventActivity actResp) {
         if (actResp == null)
