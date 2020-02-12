@@ -10,7 +10,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class AdminActivity extends AppCompatActivity {
-    private Global global = Global.Context(this);
+    private Global global = Global.Context(this); //test change for test push
     private Patient patient;
     private EditText tbxPatNumber;
     private EditText tbxSPNYearId;
