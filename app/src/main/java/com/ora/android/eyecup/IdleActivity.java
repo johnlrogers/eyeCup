@@ -19,10 +19,17 @@ public class IdleActivity extends AppCompatActivity {
     private int miCurActId = 0;
     private String mstrActTxt = "";
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+//20200212
+        setShowWhenLocked(true);
+        setTurnScreenOn(true);
+
         setContentView(R.layout.activity_idle);
+
+//        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
         miCurActId = getIntent().getIntExtra("ActIdx", 0);
         mstrActTxt =  getIntent().getStringExtra("ActTxt");

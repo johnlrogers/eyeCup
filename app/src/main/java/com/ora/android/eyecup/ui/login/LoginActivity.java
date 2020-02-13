@@ -167,30 +167,41 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Log.d("Login:OnClickListener", "Login LoginListener");
+                boolean bLogin = false;
 
 //                loadingProgressBar.setVisibility(View.VISIBLE);
 //JLR 20200126
 //                loginViewModel.login(usernameEditText.getText().toString(),
 //                        passwordEditText.getText().toString());
-                TryLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
+                bLogin = TryLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
+                if (bLogin) {
+                    try {
+                        finish();
+                    } catch (Exception e) {
+                        Log.d("Login:OnClickListener:finish", e.toString());
+                    }
+                }
             }
         });
     }
 
-    private void TryLogin(String strUser, String strPW) {
-
+    private boolean TryLogin(String strUser, String strPW) {
+        boolean bLogin = false;
         int iLoginState = alwaysService.TryLogin(strUser, strPW);
         if (iLoginState == LOGIN_PARTICPANT_ERR_NO_ERR) {
 //            alwaysService.setServiceEventState(LOGIN_PARTICPANT_ERR_NO_ERR);
             alwaysService.setLoginEvtState(LOGIN_PARTICPANT_ERR_NO_ERR);
+            bLogin = true;
         }
 //20200211
         if (iLoginState == LOGIN_ADMIN_ERR_NO_ERR) {
 //            alwaysService.setServiceEventState(LOGIN_ADMIN_ERR_NO_ERR);
             alwaysService.setLoginEvtState(LOGIN_ADMIN_ERR_NO_ERR);
+            bLogin = true;
         }
 //20200211 end
         loginViewModel.loginMessage(iLoginState);
+        return bLogin;
     }
 
     private void updateUiWithUser(LoggedInUserView model) {
