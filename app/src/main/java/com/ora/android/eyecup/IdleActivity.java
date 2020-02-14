@@ -13,11 +13,13 @@ import androidx.appcompat.app.AppCompatActivity;
 public class IdleActivity extends AppCompatActivity {
 
     private TextView txtInstruction;
+    private TextView txtDbVer;
     private Globals glob;
     private boolean isBound = false;
     private AlwaysService alwaysService;
     private int miCurActId = 0;
     private String mstrActTxt = "";
+    private String mstrActDbVer = "";
 
 
     @Override
@@ -33,9 +35,13 @@ public class IdleActivity extends AppCompatActivity {
 
         miCurActId = getIntent().getIntExtra("ActIdx", 0);
         mstrActTxt =  getIntent().getStringExtra("ActTxt");
+        mstrActDbVer =  getIntent().getStringExtra("ActDbVerTxt");
 
         txtInstruction = findViewById(R.id.txtInstruction);
         txtInstruction.setText(mstrActTxt);
+
+        txtDbVer = findViewById(R.id.txtDbVersion);
+        txtDbVer.setText(mstrActDbVer);
     }
 
     @Override

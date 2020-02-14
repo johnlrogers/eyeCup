@@ -162,6 +162,8 @@ public class AlwaysService extends Service {
 
     private String mstrPatFilesRoot;                                        //Root directory for Participant Files
 
+    private String mstrDbVersion;                                           //db version comment
+
     /**************** start methods ***********************/
     public AlwaysService() {
         super();
@@ -174,6 +176,7 @@ public class AlwaysService extends Service {
         glob = new Globals();                   //init Globals object
         InitDirectoryTree();                    //create directory tree if not present
 
+        GetDbVersionFromDb();                   //get database verison form database
         GetDeviceFromDb();                      //get participant form database
         GetPatFromDb();                         //get participant form database
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
@@ -339,6 +342,7 @@ public class AlwaysService extends Service {
                     intent = new Intent(this, IdleActivity.class);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.putExtra("ActTxt", "Event Missed.  Your next event is at " + strNextEventTime);
+                    intent.putExtra("ActDbVerTxt", mstrDbVersion);
                     intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                     startActivity(intent);
                     break;
@@ -379,6 +383,7 @@ public class AlwaysService extends Service {
                             intent = new Intent(this, IdleActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             intent.putExtra("ActTxt", strMsg);
+                            intent.putExtra("ActDbVerTxt", mstrDbVersion);
                             intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                             startActivity(intent);
 
@@ -438,6 +443,7 @@ public class AlwaysService extends Service {
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 //                    intent.putExtra("ActTxt", "Your next event is at " + strNextEventTime);
                     intent.putExtra("ActTxt", strMsg);
+                    intent.putExtra("ActDbVerTxt", mstrDbVersion);
                     intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                     startActivity(intent);
                     break;
@@ -673,6 +679,30 @@ public class AlwaysService extends Service {
 //    }
 
     /* Get the current participant from the database */
+    private boolean GetDbVersionFromDb() {
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        try {
+            dba.open();                                                                 //open db
+            String strQry = "SELECT * FROM tDBVersion";                                    //set SQL
+            Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            while (crs.moveToNext()) {                                                  //Iterate Cursor
+                //set current Participant
+                mstrDbVersion = crs.getString(crs.getColumnIndex("dbVersionComment"));  //db version
+            }
+            crs.close();
+            dba.close();
+
+        } catch (NullPointerException e) {
+            Log.e("AlwaysService:GetDbVersionFromDb:NPEx", e.toString());
+
+            mstrDbVersion = "Unable to get db Version";
+
+            return false;
+        }
+        return true;
+    }
+
     private boolean GetDeviceFromDb() {
 
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access

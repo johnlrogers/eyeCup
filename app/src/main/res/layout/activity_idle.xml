@@ -13,19 +13,31 @@
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
         android:orientation="vertical" >
+
+        <TextView
+            android:id="@+id/txtInstruction"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_margin="10dp"
+            android:gravity="center"
+            android:text="Medium Text"
+            android:textColor="@color/clrInstructions"
+            android:textSize="25sp"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <TextView
+            android:id="@+id/txtDbVersion"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_margin="10dp"
+            android:gravity="center"
+            android:text="Medium Text"
+            android:textColor="@color/clrInstructions"
+            android:textSize="25sp"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/txtInstruction"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerHorizontal="true"
-        android:layout_centerVertical="true"
-        android:layout_margin="10dp"
-        android:gravity="center"
-        android:text="Medium Text"
-        android:textColor="@color/clrInstructions"
-        android:textSize="25sp"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
 
 </RelativeLayout>

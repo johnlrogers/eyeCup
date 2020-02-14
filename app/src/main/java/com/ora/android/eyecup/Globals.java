@@ -16,7 +16,7 @@ public class Globals {
 
 //    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
     public static final boolean APP_DEMO_MODE = true;
-    public static final int APP_DEMO_MODE_MIN_OPEN = 5;
+    public static final int APP_DEMO_MODE_MIN_OPEN = 2;
     public static final int APP_DEMO_MODE_MIN_WARN = 10;
     public static final int APP_DEMO_MODE_MIN_EXPIRE = 15;
 
