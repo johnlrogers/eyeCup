@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -1709,15 +1711,15 @@ public class AlwaysService extends Service {
     }
     public void LogMsg(String logMsg) { //log message to "Log_yyyy-MM-dd.txt" (where "y" is year, "M" is month, and "d" is day) in the "Logs" folder
         Context context = getApplicationContext();
-        String today = (new SimpleDateFormat("yyyy-MM-dd")).format(Calendar.getInstance().getTime());
         DatabaseAccess dba = DatabaseAccess.getInstance(context);
         try {
-            dba.open();
-            String path = mCurrentService.getExternalFilesDir(APP_DIR_DATA_ARCHIVE + "/Logs").getPath();
-            String fileName = "Log_" + today + ".txt";
+            String path = getExternalFilesDir(APP_DIR_DATA_ARCHIVE + "/Logs").getPath();
+            String fileName = "Log_" + (new SimpleDateFormat("yyyy-MM-dd")).format(Calendar.getInstance().getTime())
+                    + ".txt";
             File newFile = new File(path, fileName);
             FileOutputStream fileOutputStream = context.openFileOutput(fileName, MODE_APPEND);
-            fileOutputStream.write((today + " Message: " + logMsg + System.lineSeparator()).getBytes());
+            fileOutputStream.write(((new SimpleDateFormat("yyyy-MM-dd HH:mm")).format(Calendar.getInstance().getTime())
+                    + " Message: " + logMsg + System.lineSeparator()).getBytes());
             fileOutputStream.close();
             fileName = context.getFilesDir().toString() + "/" + fileName;
             try { dba.MoveTo(fileName, newFile.getAbsolutePath(), true); }
@@ -1725,7 +1727,6 @@ public class AlwaysService extends Service {
                 Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
                 //todo handle
             }
-            dba.close();
         }
         catch (Exception e) {
             Log.e("DA:LogMsg:Ex", e.toString());
