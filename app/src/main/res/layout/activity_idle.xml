@@ -18,25 +18,27 @@
             android:id="@+id/txtInstruction"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
             android:layout_margin="10dp"
+            android:layout_weight="1"
+            android:clickable="true"
             android:gravity="center"
             android:text="Medium Text"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:textColor="@color/clrInstructions"
-            android:textSize="25sp"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            android:textSize="25sp" />
 
         <TextView
             android:id="@+id/txtDbVersion"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
             android:layout_margin="10dp"
+            android:layout_weight="1"
+            android:clickable="true"
             android:gravity="center"
             android:text="Medium Text"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:textColor="@color/clrInstructions"
-            android:textSize="25sp"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            android:textSize="25sp" />
     </LinearLayout>
 
 

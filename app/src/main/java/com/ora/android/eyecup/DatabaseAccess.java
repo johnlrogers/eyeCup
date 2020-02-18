@@ -66,7 +66,7 @@ public class DatabaseAccess {
         if (db != null)
             db.close();
     }
-    private void MoveTo(String origAbsPathFile, String newAbsPathFile, boolean keepOrig) throws IOException {
+    public void MoveTo(String origAbsPathFile, String newAbsPathFile, boolean keepOrig) throws IOException {
         if (origAbsPathFile == null || newAbsPathFile == null)
             return; //returned for method misuse
         try (InputStream in = new FileInputStream(origAbsPathFile)) {
@@ -80,7 +80,7 @@ public class DatabaseAccess {
         if (!keepOrig)
             new File(origAbsPathFile).delete();
     }
-    private String FormatFileName(String appRelPathFile, String ext, DateFormat dFormat) { //"appRelPathFile" is the path (with forward slashes, if applicable) including file name relative to this app's data folder in the device itself, "ext" is the extension starting with "."; pass "null" for "dFormat" to append no timestamp
+    public String FormatFileName(String appRelPathFile, String ext, DateFormat dFormat) { //"appRelPathFile" is the path (with forward slashes, if applicable) including file name relative to this app's data folder in the device itself, "ext" is the extension starting with "."; pass "null" for "dFormat" to append no timestamp
         if (appRelPathFile == null || ext == null)
             return null; //default for method misuse
         String fileName = db.getPath();
@@ -157,6 +157,7 @@ public class DatabaseAccess {
         }
         try {
             db.execSQL(sqlCmd);
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tParticipant.");
             success = true;
         }
         catch (Exception e) {
@@ -174,6 +175,7 @@ public class DatabaseAccess {
         sqlCmd = "UPDATE tDevice SET DeviceAppId = '" + dvc.getDeviceAppId() + "'";
         try {
             db.execSQL(sqlCmd);
+            AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tDevice.");
             success = true;
         }
         catch (Exception e) {
@@ -185,7 +187,10 @@ public class DatabaseAccess {
 
     public String GetStudyPatNumber() {
         String studyPatNumber;
-        try { c = db.rawQuery("SELECT StudyPatNumber FROM tParticipant LIMIT 1;", new String[] { }); }
+        try {
+            c = db.rawQuery("SELECT StudyPatNumber FROM tParticipant LIMIT 1;", new String[] { });
+            AlwaysService.getmCurrentService().LogMsg("Selected StudyPatNumber from tParticipant.");
+        }
         catch (Exception e) {
             Log.e("DA:GetParticipantInfo:Ex", e.toString());
             //todo handle
@@ -197,7 +202,10 @@ public class DatabaseAccess {
     }
 
     public Object[][] GetParticipantInfo() { //returns null if no participant exists
-        try { c = db.rawQuery("SELECT * FROM tParticipant LIMIT 1;", new String[] { }); }
+        try {
+            c = db.rawQuery("SELECT * FROM tParticipant LIMIT 1;", new String[] { });
+            AlwaysService.getmCurrentService().LogMsg("Selected 1 record from tParticipant.");
+        }
         catch (Exception e) {
             Log.e("DA:GetParticipantInfo:Ex", e.toString());
             //todo handle
@@ -223,6 +231,7 @@ public class DatabaseAccess {
         Cursor crs = null;
         try {
             crs = db.rawQuery(strQry, null);
+            AlwaysService.getmCurrentService().LogMsg("Selected 1 record from tParticipant.");
             while (crs.moveToNext()) {                                                      //Iterate Cursor
                 pat.setPatId(crs.getLong(crs.getColumnIndex("PatId")));
                 pat.setPatYearId(crs.getInt(crs.getColumnIndex("PatYearId")));
@@ -254,6 +263,7 @@ public class DatabaseAccess {
         Cursor crs = null;
         try {
             crs = db.rawQuery(strQry, null);
+            AlwaysService.getmCurrentService().LogMsg("Selected 1 record from tDevice.");
             while (crs.moveToNext()) {                                                      //Iterate Cursor
                 dvc.setDeviceId(crs.getLong(crs.getColumnIndex("DeviceId")));
                 dvc.setDeviceAppId(crs.getString(crs.getColumnIndex("DeviceAppId")));
@@ -273,7 +283,10 @@ public class DatabaseAccess {
 //20200211 end
 
     public List<Object[]> GetTableData(String tblName) { //first row is column names
-        try { c = db.rawQuery("SELECT * FROM " + tblName + ";", new String[] { }); }
+        try {
+            c = db.rawQuery("SELECT * FROM " + tblName + ";", new String[] { });
+            AlwaysService.getmCurrentService().LogMsg("Selected all records from " + tblName + ".");
+        }
         catch (Exception e) {
             Log.e("DA:GetTableData:Ex", e.toString());
             //todo handle
@@ -298,8 +311,12 @@ public class DatabaseAccess {
             view = "vPatEvtActivity";
         else
             view = "vProtRevEvtActivities";
-        try { c = db.rawQuery("SELECT " + selectCol + " FROM " + view + " WHERE " + whereCol + " = " + whereVal + ";",
-                new String[] { }); }
+        try {
+            c = db.rawQuery("SELECT " + selectCol + " FROM " + view + " WHERE " + whereCol + " = " + whereVal + ";",
+                new String[] { });
+            AlwaysService.getmCurrentService().LogMsg("Selected all records from " + view + " where " + whereCol + " = " +
+                    whereVal + ".");
+        }
         catch (Exception e) {
             Log.e("DA:CallView:Ex", e.toString());
             //todo handle
@@ -317,7 +334,11 @@ public class DatabaseAccess {
     public String BackupDB() { //save copy of the SQLite database on the device to the returned internal storage path
         String fileName = FormatFileName("files/Archives/ORADb_Backup", ".db",
                 new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
-        try { MoveTo(db.getPath(), fileName, true); }
+        try {
+            String dbPath = db.getPath();
+            MoveTo(dbPath, fileName, true);
+            AlwaysService.getmCurrentService().LogMsg("Database backed up to '" + dbPath + fileName + "'.");
+        }
         catch (Exception e) {
             Log.e("DA:BackupDb:Ex", e.toString());
             //todo handle
@@ -327,13 +348,16 @@ public class DatabaseAccess {
     private void ClearTable(String name) {
         if (name == null)
             return; //returned for method misuse
-        try { db.execSQL("DELETE FROM " + name + ";"); }
+        try {
+            db.execSQL("DELETE FROM " + name + ";");
+            AlwaysService.getmCurrentService().LogMsg("Deleted all record(s) from " + name + ".");
+        }
         catch (Exception e) {
             Log.e("DA:clearTable:Ex", e.toString());
             //todo handle
         }
     }
-    public void InsertParticipantEvent(ParticipantEvent event) {
+    public void InsertParticipantEvent(ParticipantEvent event) { //edit: utilize in app
         if (event == null)
             return; //returned for method misuse
         try {
@@ -342,6 +366,7 @@ public class DatabaseAccess {
                     event.getParticipantId() + ", " + event.getDeviceId() + ", " + event.getProtocolRevEventId().toString() + "', " +
                     event.getPatEventDtStart() + "', " + event.getPatEventResponseCnt().toString() + ", " +
                     event.getPatEventPictureCnt().toString() + ";");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tParticipantEvent.");
         }
         catch (Exception e) {
             Log.e("DA:InsertParticipantEvent:Ex", e.toString());
@@ -364,9 +389,11 @@ public class DatabaseAccess {
             strSQL = strSQL + "'" + patEvt.getPatEvtDtUpload() + "')";
 
             db.execSQL(strSQL);
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tParticipantEvent.");
 
             strSQL = "SELECT MAX(PatEvtId) as MaxId FROM tParticipantEvent";
             Cursor crs = db.rawQuery(strSQL, null);                     //get cursor to view
+            AlwaysService.getmCurrentService().LogMsg("Selected maximum PatEvtId from tParticipantEvent.");
             while (crs.moveToNext()) {                                                  //Iterate cursor
                 lNextId = crs.getLong(crs.getColumnIndex("MaxId"));     //todo current or next event
             }
@@ -380,11 +407,14 @@ public class DatabaseAccess {
         return lNextId; //returned for method misuse
     }
 
-    public boolean UpdateTParticipantEventDtEnd(long patEvtId) {
+    public boolean UpdateTParticipantEventDtEnd(long patEvtId) { //edit: utilize in app
         String colName = "PatEvtDtEnd";
         Globals glob = new Globals();
         String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
-        try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strDt + "' WHERE PatEvtId = " + patEvtId + ";"); }
+        try {
+            db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strDt + "' WHERE PatEvtId = " + patEvtId + ";");
+            AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tParticipantEvent.");
+        }
         catch (Exception e) {
             Log.e("DA:UpdateTParticipantEventDtEnd:Ex", e.toString());
             //todo handle
@@ -397,7 +427,10 @@ public class DatabaseAccess {
         String colName = "PatEvtDtUpload";
         Globals glob = new Globals();
         String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
-        try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strDt + "' WHERE PatEvtId = " + patEvtId + ";"); }
+        try {
+            db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strDt + "' WHERE PatEvtId = " + patEvtId + ";");
+            AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tParticipant.");
+        }
         catch (Exception e) {
             Log.e("DA:UpdateTParticipantEventDtUpload:Ex", e.toString());
             //todo handle
@@ -410,7 +443,10 @@ public class DatabaseAccess {
         String colName = "PatEvtActDtUpload";
         Globals glob = new Globals();
         String strDt = glob.GetDateStr(DT_FMT_FULL_ACTIVITY, glob.getDate());               //get datetime now
-        try { db.execSQL("UPDATE tParticipantEventActivity SET " + colName + " = '" + strDt + "' WHERE PatEvtActId = " + patEvtActId + ";"); }
+        try {
+            db.execSQL("UPDATE tParticipantEventActivity SET " + colName + " = '" + strDt + "' WHERE PatEvtActId = " + patEvtActId + ";");
+            AlwaysService.getmCurrentService().LogMsg("Update record(s) in tParticipantEventActivity.");
+        }
         catch (Exception e) {
             Log.e("DA:UpdateTParticipantEventActivityDtUpload:Ex", e.toString());
             //todo handle
@@ -421,7 +457,10 @@ public class DatabaseAccess {
 
     public boolean UpdateTParticipantEventFileName(long patEvtId, String strFilename) {
         String colName = "PatEvtFileName";
-        try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strFilename + "' WHERE PatEvtId = " + patEvtId + ";"); }
+        try {
+            db.execSQL("UPDATE tParticipantEvent SET " + colName + " = '" + strFilename + "' WHERE PatEvtId = " + patEvtId + ";");
+            AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tParticipantEvent.");
+        }
         catch (Exception e) {
             Log.e("DA:UpdateTParticipantEventFileName:Ex", e.toString());
             //todo handle
@@ -434,7 +473,10 @@ public class DatabaseAccess {
         String colName = "PatEvtResponseCnt";
         if (!isResponse)
             colName = "PatEvtPictureCnt";
-        try { db.execSQL("UPDATE tParticipantEvent SET " + colName + " = " + count + " WHERE PatEvtId = " + patEvtId + ";"); }
+        try {
+            db.execSQL("UPDATE tParticipantEvent SET " + colName + " = " + count + " WHERE PatEvtId = " + patEvtId + ";");
+            AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tParticipantEvent.");
+        }
         catch (Exception e) {
             Log.e("DA:UpdateParticipantEventChildCnt:Ex", e.toString());
             //todo handle
@@ -448,6 +490,7 @@ public class DatabaseAccess {
                     + "(" + patEvtId + ", " + response.getProtocolRevEventActivityId().toString() + ", " +
                     response.getResponseVal().toString() + ", '" + response.getResponseTxt() + "', '" + response.getResponseDt() +
                     "');");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tParticipantEventActivity.");
         }
         catch (Exception e) {
             Log.e("DA:InsertParticipantResponse:Ex", e.toString());
@@ -461,6 +504,7 @@ public class DatabaseAccess {
             db.execSQL("INSERT INTO tParticipantEventActivity (PatEvtId, ProtRevEvtActId, ResponsePath, PatEvtActDt) VALUES ("
                     + patEvtId + ", " + picture.getProtocolRevEventActivityId().toString() + ", '" + picture.getPictureFileName() +
                     "', '" + picture.getPictureDt() + "');");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tParticipantEventActivity.");
         }
         catch (Exception e) {
             Log.e("DA:InsertParticipantPicture:Ex", e.toString());
@@ -472,6 +516,7 @@ public class DatabaseAccess {
         boolean bRet = false;
         try {
             db.execSQL("UPDATE tParticipantEvent SET PatEvtDtEnd = '" + date + "' WHERE PatEvtId = " + patEvtId + ";");
+            AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tParticipantEvent.");
             bRet = true;
         }
         catch (Exception e) {
@@ -484,8 +529,11 @@ public class DatabaseAccess {
     public void MarkParticipantEventUploaded(ParticipantEvent newEvent) { //edit: call when uploaded
         if (newEvent == null)
             return; //returned for method misuse
-        try { db.execSQL("UPDATE tParticipantEvent WHERE PatEvtId = " + newEvent.getPatEventId().toString() + " SET PatEvtDtUpload = '" +
-                newEvent.getPatEventDtUpload() + "';"); }
+        try {
+            db.execSQL("UPDATE tParticipantEvent WHERE PatEvtId = " + newEvent.getPatEventId().toString() + " SET PatEvtDtUpload = '" +
+                newEvent.getPatEventDtUpload() + "';");
+            AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tParticipantEvent.");
+        }
         catch (Exception e) {
             Log.e("DA:InsertParticipantEventUploaded:Ex", e.toString());
             //todo handle
@@ -499,6 +547,7 @@ public class DatabaseAccess {
             db.execSQL("INSERT INTO tProtRev (ProtRevId, ProtName, ProtRevName, ProtRevDt) VALUES (" +
                     entity.getProtocolRevId().toString() + ", '" + entity.getProtocolName() + "', '" + entity.getProtocolRevName() +
                     "', '" + entity.getProtocolRevDt() + "');");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tProtRev.");
         }
         catch (Exception e) {
             Log.e("DA:InsertProtocolRevision:Ex", e.toString());
@@ -520,6 +569,7 @@ public class DatabaseAccess {
                     entity.getProtocolRevId().toString() + ", '" + entity.getProtocolRevEventName() + "', '" + entity.getFrequencyCode()
                     + "', " + entity.getEventDayStart().toString() + "', " + entity.getEventDaysDuration().toString() + ", '" + entity.getEventTimeOpen() + "', '" +
                     entity.getEventTimeWarn() + "', '" + entity.getEventTimeClose() + "');");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tProtRevEvent.");
         }
         catch (Exception e) {
             Log.e("DA:InsertProtocolRevEvent:Ex", e.toString());
@@ -535,10 +585,12 @@ public class DatabaseAccess {
                     entity.getProtocolRevEventId().toString() + ", " + entity.getActivitySeq().toString() + ", " +
                     entity.getActivityId().toString() + ", '" + entity.getProtRevEvtApplyTo() + "', " + entity.getMinRange().toString()
                     + ", " + entity.getMaxRange().toString() + ");");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tProtRevEventActivity.");
             db.execSQL("INSERT INTO tActivity (ActId, ActTypeId, RspTypeId, ActText, ActPictureCode) VALUES (" +
                     entity.getActivityId().toString() + ", " + entity.getActivityTypeId().toString() + ", " +
                     entity.getActivityResponseTypeId().toString() + ", '" + entity.getActivityText() + "', '" +
                     entity.getActivityPictureCode() + "');");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tActivity.");
         }
         catch (Exception e) {
             Log.e("DA:InsertEventActivity:Ex", e.toString());
@@ -553,9 +605,11 @@ public class DatabaseAccess {
                     "(" + entity.getProtocolRevEventActivityId().toString() + ", " + parent.getProtocolRevEventId().toString() + ", " +
                     parent.getActivitySeq().toString() + ", " + entity.getActId().toString() + ", '" + parent.getProtRevEvtApplyTo() +
                     "');");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tProtRevEventActivity.");
             db.execSQL("INSERT INTO tActivityResponseAvail (ActRspId, ActId, ActRspSeq, ActRspVal) VALUES (" +
                     entity.getActRspId().toString() + ", " + entity.getActId().toString() + ", " + entity.getActRspSeq().toString() +
                     ", " + entity.getActRspValue().toString() + ");");
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tActivityResponseAvail.");
         }
         catch (Exception e) {
             Log.e("DA:InsertActivityResponse:Ex", e.toString());
@@ -687,7 +741,10 @@ public class DatabaseAccess {
         strSQL = "SELECT * FROM " + outerObjectDbView;
         strSQL = strSQL + " WHERE PatEventId = " + lPatEvtId;
         strSQL = strSQL + " ORDER BY PatEventId;";
-        try { c = db.rawQuery(strSQL, null); }
+        try {
+            c = db.rawQuery(strSQL, null);
+            AlwaysService.getmCurrentService().LogMsg("Selected all records from " + outerObjectDbView + ".");
+        }
         catch (Exception e) {
             Log.e("DA:CreateJSON.outerObjectDbView:Ex", e.toString());
             //todo handle
@@ -707,7 +764,11 @@ public class DatabaseAccess {
         strSQL = "SELECT * FROM " + innerObjectsDbView;
         strSQL = strSQL + " WHERE PatEvtId = " + lPatEvtId;
         strSQL = strSQL + " ORDER BY PatEvtId, ProtocolRevEventActivityId;";
-        try { c = db.rawQuery(strSQL, null); }
+        try {
+            c = db.rawQuery(strSQL, null);
+            AlwaysService.getmCurrentService().LogMsg("Selected & ordered all records from " + innerObjectsDbView +
+                    " where PatEvtId = " + lPatEvtId + ".");
+        }
         catch (Exception e) {
             Log.e("DA:CreateJSON.innerObjectsDbView:IOEx", e.toString());
             //todo handle
@@ -721,7 +782,11 @@ public class DatabaseAccess {
         strSQL = "SELECT * FROM " + innerImagesDbView;
         strSQL = strSQL + " WHERE PatEvtId = " + lPatEvtId;
         strSQL = strSQL + " ORDER BY PatEvtId, ProtocolRevEventActivityId;";
-        try { c = db.rawQuery(strSQL, null); }
+        try {
+            c = db.rawQuery(strSQL, null);
+            AlwaysService.getmCurrentService().LogMsg("Selected & ordered all records from " + innerImagesDbView + " where"
+                    + " PatEvtId = " + lPatEvtId + ".");
+        }
         catch (Exception e) {
             Log.e("DA:CreateJSON.innerImagesDbView:IOEx", e.toString());
             //todo handle
@@ -750,7 +815,7 @@ public class DatabaseAccess {
 //        String relFileName = GetStudyPatNumber() + "_" + strDt + ".json";       //output JSON file name
 //        String relFileName = GetStudyPatNumber() + "_" + strDt + ".json";       //output JSON file name
         try {
-//            FileOutputStream fileOutputStream = ctx.openFileOutput(relFileName + ".json", MODE_PRIVATE);
+//          FileOutputStream fileOutputStream = ctx.openFileOutput(relFileName + ".json", MODE_PRIVATE);
             FileOutputStream fileOutputStream = ctx.openFileOutput(relFileName , MODE_PRIVATE);
             fileOutputStream.write(resultObj.toString(4).getBytes());
             fileOutputStream.close();
@@ -823,10 +888,14 @@ public class DatabaseAccess {
             strSQL = strSQL + "'" + strDt + "');";
 
             db.execSQL(strSQL);
+            AlwaysService.getmCurrentService().LogMsg("Inserted record(s) into tParticipantEventActivity.");
 
             String strActTypeCode = "";
-            strSQL = "SELECT ActTypeCode FROM tProtRevEventActivity WHERE ProtRevEvtActId = " + actResp.getProtrevevtactid();
+            long strProtrevevtactid = actResp.getProtrevevtactid();
+            strSQL = "SELECT ActTypeCode FROM tProtRevEventActivity WHERE ProtRevEvtActId = " + strProtrevevtactid;
             Cursor crs = db.rawQuery(strSQL, null);                     //get cursor to view
+            AlwaysService.getmCurrentService().LogMsg("Selected all records from tProtRevEventActivity where" +
+                    " ProtRevEvtActId = " + strProtrevevtactid + ".");
             while (crs.moveToNext()) {                                                  //Iterate Codes
                 strActTypeCode = crs.getString(crs.getColumnIndex("ActTypeCode"));      //Get Activity Type Code (only one row)
             }
@@ -842,8 +911,11 @@ public class DatabaseAccess {
                 bUpdCnt = true;
             }
             if (bUpdCnt) {
-                strSQL = strSQL + " WHERE PatEvtId = " + actResp.getPatevtid();
+                long patevtid = actResp.getPatevtid();
+                strSQL = strSQL + " WHERE PatEvtId = " + patevtid;
                 db.execSQL(strSQL);
+                AlwaysService.getmCurrentService().LogMsg("Updated record(s) in tParticipantEvent where PatEvtId = " +
+                        patevtid + ".");
             }
         }
         catch (Exception e) {

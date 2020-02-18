@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -38,9 +40,11 @@ public class IdleActivity extends AppCompatActivity {
         mstrActDbVer =  getIntent().getStringExtra("ActDbVerTxt");
 
         txtInstruction = findViewById(R.id.txtInstruction);
+        txtInstruction.setOnClickListener(idleClickListenerTop);
         txtInstruction.setText(mstrActTxt);
 
         txtDbVer = findViewById(R.id.txtDbVersion);
+        txtDbVer.setOnClickListener(idleClickListenerBottom);
         txtDbVer.setText(mstrActDbVer);
     }
 
@@ -74,6 +78,22 @@ public class IdleActivity extends AppCompatActivity {
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
             isBound = false;
+        }
+    };
+
+    private View.OnClickListener idleClickListenerTop = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            Log.d("Idle:OnClickListener", "Idle txtInstructions");
+            alwaysService.SetAdminUnlockState(true);
+        }
+    };
+
+    private View.OnClickListener idleClickListenerBottom = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            Log.d("Idle:OnClickListener", "Idle txtDbVersion");
+            alwaysService.SetAdminUnlockState(false);
         }
     };
 }

@@ -34,6 +34,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.Timer;
@@ -163,6 +165,8 @@ public class AlwaysService extends Service {
     private String mstrPatFilesRoot;                                        //Root directory for Participant Files
 
     private String mstrDbVersion;                                           //db version comment
+
+    private int adminUnlockState = -1;                                           //"bottom-top-bottom-top" (0-1-2-3; activity_idle screen divisions) is the unlock pattern
 
     /**************** start methods ***********************/
     public AlwaysService() {
@@ -506,6 +510,7 @@ public class AlwaysService extends Service {
                 strQry = strQry + " ORDER BY EvtTimeOpen";                                  //select events //todo include Freq/Duration in sort
 
                 Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+                LogMsg("Selected & ordered all records from tProtRevEvent where ProtRevId = " + mlCurProtRevId + ".");
                 while (crs.moveToNext()) {                                                  //Iterate cursor
                     //todo use times and state to determine next event
                     miCurProtRevEvtIdx = 0;     //todo current or next event
@@ -686,6 +691,7 @@ public class AlwaysService extends Service {
             dba.open();                                                                 //open db
             String strQry = "SELECT * FROM tDBVersion";                                    //set SQL
             Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            LogMsg("Selected all records from tDBVersion.");
             while (crs.moveToNext()) {                                                  //Iterate Cursor
                 //set current Participant
                 mstrDbVersion = crs.getString(crs.getColumnIndex("dbVersionComment"));  //db version
@@ -710,6 +716,7 @@ public class AlwaysService extends Service {
             dba.open();                                                                 //open db
             String strQry = "SELECT * FROM tDevice";                                    //set SQL
             Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            LogMsg("Selected all records from tDevice.");
             while (crs.moveToNext()) {                                                  //Iterate Cursor
                 //set current Participant
                 mCurDevice.setDeviceId(crs.getLong(crs.getColumnIndex("DeviceId")));        //DeviceId
@@ -738,6 +745,7 @@ public class AlwaysService extends Service {
             dba.open();                                                                 //open db
             String strQry = "SELECT * FROM tParticipant";                               //set SQL
             Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            LogMsg("Selected all records from tParticipant.");
             while (crs.moveToNext()) {                                                  //Iterate Cursor
                                                                                             //set current Participant
                 mCurPat.setPatId(crs.getLong(crs.getColumnIndex("PatId")));             //PatId
@@ -799,6 +807,8 @@ public class AlwaysService extends Service {
             strQry = strQry + " WHERE ActId is not NULL and ActTypeId IS NOT NULL";
             strQry = strQry + " ORDER BY ProtRevId, ProtRevEvtId, ActSeq, ProtRevEvtActId, ActRspSeq";
             Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            LogMsg("Selected & ordered all records from vProtRevEvtActExp where ActId is not null and ActTypeId is not" +
+                    " null.");
             while (crs.moveToNext()) {                                                  //Iterate Event Activities and Responses
                 {
                     lCurRev = crs.getLong(crs.getColumnIndex("ProtRevId"));     //get Protocol Rev
@@ -1283,6 +1293,33 @@ public class AlwaysService extends Service {
         }
     }
 
+    public void SetAdminUnlockState(boolean topScreenSection) {
+        if (topScreenSection) {
+            if (adminUnlockState == 0)
+                adminUnlockState++;
+            else {
+                if (adminUnlockState == 2)
+                    GoToAdmin();
+                adminUnlockState = -1;
+            }
+        }
+        else {
+            if (adminUnlockState == -1 || adminUnlockState == 1)
+                adminUnlockState++;
+            else
+                adminUnlockState = -1;
+        }
+    }
+
+    private void GoToAdmin() {
+        Log.d("AlwaysService", "GoToAdmin");
+
+        Intent intent = new Intent(this, AdminActivity.class);
+        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+    }
+
     public void saveAdminChanges () {
         refreshParticipant();
         refreshDevice();
@@ -1366,6 +1403,7 @@ public class AlwaysService extends Service {
             dba.open();                                                                 //open db
             String strQry = "SELECT * FROM tParticipant ORDER BY PatNumber";
             Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            LogMsg("Selected & ordered all records from tParticipant.");
             while (crs.moveToNext()) {                                                  //Iterate Participants
                 iPatNum = crs.getInt(crs.getColumnIndex("PatNumber"));             //Get Participant Number
                 strPatNum = String.valueOf(iPatNum);                                        //convert string
@@ -1596,6 +1634,8 @@ public class AlwaysService extends Service {
             }
             dba.open();                                                         //open db
             Cursor crs = dba.db.rawQuery(strQry, null);             //get cursor to view
+            LogMsg("Selected all records from vPatEvtActNoUpload (where PatEvtId = " + lPatEvtId + ", if lPatEvtId is" +
+                    " greater than 0).");
             try {
                 while (crs.moveToNext()) {                                          //Iterate Events
 
@@ -1651,6 +1691,7 @@ public class AlwaysService extends Service {
             dba.open();                                                                 //open db
             String strQry = "SELECT PatEvtId, PatEvtFileName FROM vPatEvtCompNoUpload";
             Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+            LogMsg("Selected all records from vPatEvtCompNoUpload.");
             while (crs.moveToNext()) {                                                  //Iterate Events
                 lPatEvtId = crs.getInt(crs.getColumnIndex("PatEvtId"));         //Get Id
                 strFile = crs.getString(crs.getColumnIndex("PatEvtFileName"));  //Get file name
@@ -1665,6 +1706,31 @@ public class AlwaysService extends Service {
             //todo handle
         }
         return bRet;
+    }
+    public void LogMsg(String logMsg) { //log message to "Log_yyyy-MM-dd.txt" (where "y" is year, "M" is month, and "d" is day) in the "Logs" folder
+        Context context = getApplicationContext();
+        String today = (new SimpleDateFormat("yyyy-MM-dd")).format(Calendar.getInstance().getTime());
+        DatabaseAccess dba = DatabaseAccess.getInstance(context);
+        try {
+            dba.open();
+            String path = mCurrentService.getExternalFilesDir(APP_DIR_DATA_ARCHIVE + "/Logs").getPath();
+            String fileName = "Log_" + today + ".txt";
+            File newFile = new File(path, fileName);
+            FileOutputStream fileOutputStream = context.openFileOutput(fileName, MODE_APPEND);
+            fileOutputStream.write((today + " Message: " + logMsg + System.lineSeparator()).getBytes());
+            fileOutputStream.close();
+            fileName = context.getFilesDir().toString() + "/" + fileName;
+            try { dba.MoveTo(fileName, newFile.getAbsolutePath(), true); }
+            catch (Exception e) {
+                Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
+                //todo handle
+            }
+            dba.close();
+        }
+        catch (Exception e) {
+            Log.e("DA:LogMsg:Ex", e.toString());
+            //todo handle
+        }
     }
 
 
