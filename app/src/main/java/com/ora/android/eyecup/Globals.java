@@ -1,7 +1,11 @@
 package com.ora.android.eyecup;
 
+import android.content.Context;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -12,16 +16,20 @@ import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.Date;
 
+import static android.content.Context.MODE_APPEND;
+
 public class Globals {
 
 //    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
     public static final boolean APP_DEMO_MODE = true;
-    public static final int APP_DEMO_MODE_MIN_OPEN = 2;
+    public static final int APP_DEMO_MODE_MIN_OPEN = 5;
     public static final int APP_DEMO_MODE_MIN_WARN = 10;
     public static final int APP_DEMO_MODE_MIN_EXPIRE = 15;
 
     public static final int APP_DFLT_DEVICE_ID = 1;
     public static final String APP_DFLT_DEVICE_APPID = "12345678";
+
+    public static final String APP_LOG_FILENAME = "eyeCupApplication.log";
 
     public static final String URL_EVENT_UPLOAD =   "https://icupapi.lionridgedev.com/v1/diary/";
     public static final String URL_PICTURE_UPLOAD = "https://icupapi.lionridgedev.com/v1/photo/";
@@ -34,6 +42,7 @@ public class Globals {
     public static final int APP_DFLT_PAT_LOCID = 1;
     public static final int APP_DFLT_PAT_NUM = 1;
     public static final String APP_DFLT_PAT_STUDYPATNUM = "20-01-001-001-0001";
+    public static final int APP_PAT_NUM_LEN = 18;
     public static final int MIN_PASSWORD_LEN = 4;
 
     public static final String APP_FILE_PROTOCOLREVISION = "protocolrevision.json";
@@ -44,10 +53,10 @@ public class Globals {
     public static final String ALWAYS_SVC_UPDATE_MSG = "AlwaysServiceMsg";
     public static final int ALWAYS_SVC_TIMER_DELAY = 1000;              //initial delay on starting loops first time
     public static final int ALWAYS_SVC_TIMER_PERIOD = 10000;            //loop status check every 10 seconds
-    public static final int ALWAYS_SVC_THANKYOU_DLY_CNT = 2;            //show the thank you message for (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_THANKYOU_DLY_CNT = 3;            //show the thank you message for (loops * 10 = seconds)
     public static final int ALWAYS_SVC_UPLOAD_DLY_CNT = 4;              //delay starting upload data after event ends (loops * 10 = seconds)
-//    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 60;            //period to try to upload non-uploaded data (loops * 10 = seconds)
-    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 15;            //period to try to upload non-uploaded data (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 60;            //period to try to upload non-uploaded data (loops * 10 = seconds)
+//    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 15;            //period to try to upload non-uploaded data (loops * 10 = seconds)
     public static final int ALWAYS_SVC_UPLOAD_PIC_DLY_CNT = 5;          //delay between pics (multiple of 1000 milliseconds)
     public static final String MSG_IDLE = "Your next event is at ";
     public static final String MSG_THANK_YOU = "Thank you for participating.  ";
@@ -230,4 +239,43 @@ public class Globals {
             result += y;
         return result;
     }
+
+    public void LogMsg(String logMsg, Context context, String path) { //log message to "Log_yyyy-MM-dd.txt" (where "y" is year, "M" is month, and "d" is day) in the "Logs" folder
+//        Context context = getApplicationContext();
+        DatabaseAccess dba = DatabaseAccess.getInstance(context);
+        try {
+//            String path = getExternalFilesDir(APP_DIR_DATA_ARCHIVE + "/Logs").getPath();
+//            String fileName = "Log_" + (new SimpleDateFormat("yyyy-MM-dd")).format(Calendar.getInstance().getTime()) + ".txt";  //APP_LOG_FILENAME
+            String fileName = APP_LOG_FILENAME;
+            File newFile = new File(path, fileName);
+            if (!newFile.exists())
+            {
+                try
+                {
+                    newFile.createNewFile();
+                }
+                catch (IOException e)
+                {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            FileOutputStream fileOutputStream = context.openFileOutput(fileName, MODE_APPEND);
+            fileOutputStream.write(((new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(Calendar.getInstance().getTime())
+                    + " " + logMsg + System.lineSeparator()).getBytes());
+            fileOutputStream.close();
+
+            fileName = context.getFilesDir().toString() + "/" + fileName;
+            try { dba.MoveTo(fileName, newFile.getAbsolutePath(), true); }
+            catch (Exception e) {
+                Log.e("LogMsg:Ex", e.toString());
+                //todo handle
+            }
+        }
+        catch (Exception e) {
+            Log.e("DA:LogMsg:Ex", e.toString());
+            //todo handle
+        }
+    }
+
 }

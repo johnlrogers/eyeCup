@@ -44,7 +44,6 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
 
     @Override
     protected String doInBackground(String... strings) {
-
         int iResponseCode;
         String strResponseMsg = "";
         HttpsURLConnection httpsUrlConnection = null;
@@ -89,7 +88,7 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
             iResponseCode = httpsUrlConnection.getResponseCode();                   //reponses
             strResponseMsg = httpsUrlConnection.getResponseMessage();
             Log.i(attachmentFileName + " Upload Status", iResponseCode + " " + strResponseMsg);
-//            Log.i("JsonMSG" , strResponseMsg);
+
         }
         catch (Exception ex) {
             Log.e("AsyncThread:doInBackground:Ex", ex.toString());

@@ -66,7 +66,7 @@ public class DatabaseAccess {
         if (db != null)
             db.close();
     }
-    private void MoveTo(String origAbsPathFile, String newAbsPathFile, boolean keepOrig) throws IOException {
+    public void MoveTo(String origAbsPathFile, String newAbsPathFile, boolean keepOrig) throws IOException {
         if (origAbsPathFile == null || newAbsPathFile == null)
             return; //returned for method misuse
         try (InputStream in = new FileInputStream(origAbsPathFile)) {
@@ -428,6 +428,24 @@ public class DatabaseAccess {
             return false;
         }
         return true;
+    }
+
+    public String getTParticipantEventFileName(long patEvtId) {
+        String strFileName = "";
+        String strSQL = "SELECT PatEvtFileName FROM tParticipantEvent WHERE PatEvtId = " + patEvtId + ";";
+        try {
+            Cursor crs = db.rawQuery(strSQL, null);         //get cursor to view
+            while (crs.moveToNext()) {                                  //Iterate cursor
+                strFileName = crs.getString(crs.getColumnIndex("PatEvtFileName"));
+                break;
+            }
+            crs.close();
+        } catch (Exception e) {
+            Log.e("DA:getTParticipantEventFileName:Ex", e.toString());
+            //todo handle
+
+        }
+        return strFileName;
     }
 
     public void UpdateParticipantEventChildCnt(long patEvtId, boolean isResponse, int count) { //edit: call when child count is updated //set "isResponse" to "false" for picture count

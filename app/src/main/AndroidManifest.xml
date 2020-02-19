@@ -20,6 +20,9 @@
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
 
+    <!--    wake up to do stuff    -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:allowBackup="true"
 
@@ -74,12 +77,11 @@
             android:name=".restarter.RestartServiceBroadcastReceiver"
             android:enabled="true"
             android:exported="true"
-            android:label="StartMyServiceAtBootReceiver">
+            android:label="StartAlwaysServiceAtBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="com.ora.android.eyecup.sensor_service.RestartSensor" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>

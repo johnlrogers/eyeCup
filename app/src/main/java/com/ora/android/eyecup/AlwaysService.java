@@ -30,10 +30,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Random;
 import java.util.Timer;
@@ -88,9 +90,12 @@ import static com.ora.android.eyecup.Globals.APP_DIR_DATA;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA_ARCHIVE;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA_FRESH;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
+import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_EVENTS;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_PICS;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL_ARCHIVE;
+import static com.ora.android.eyecup.Globals.APP_LOG_FILENAME;
+import static com.ora.android.eyecup.Globals.APP_PAT_NUM_LEN;
 import static com.ora.android.eyecup.Globals.DT_FMT_FULL_ACTIVITY;
 import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_ERR_NO_ERR;
 import static com.ora.android.eyecup.Globals.LOGIN_ADMIN_ERR_PW;
@@ -164,6 +169,8 @@ public class AlwaysService extends Service {
 
     private String mstrDbVersion;                                           //db version comment
 
+    private int adminUnlockState = -1;                                      //"bottom-top-bottom-top" (0-1-2-3; activity_idle screen divisions) is the unlock pattern
+
     /**************** start methods ***********************/
     public AlwaysService() {
         super();
@@ -189,6 +196,7 @@ public class AlwaysService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
         Log.d(TAG, "onStartCommand");
+        LogMsg("AlwaysService OnStartCommand");
         mlCount = 0;
 
         if (intent == null) {                               // Restart if it was killed by Android
@@ -209,7 +217,7 @@ public class AlwaysService extends Service {
             Notification notification = new Notification();
             startForeground(NOTIFICATION_ID, notification.setNotification(this, "AlwaysService", "Notification from AlwaysService", R.drawable.ic_sleep));
             Log.i(TAG, "restartForeground success");
-                startTimer();
+            startTimer();
         } catch (Exception e) {
             Log.e(TAG, "restartForeground:Ex: " + e.getMessage());
         }
@@ -328,7 +336,17 @@ public class AlwaysService extends Service {
                     break;
 //20200211 end
                 case ALWAYS_SVC_STATE_EVT_WIN_OPEN:                                     //Open?, or
+                    LogMsg("Event Window Opened, Expires " + strExpireTime);
+                    intent = new Intent(this, LoginActivity.class);         //Login Activity
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    intent.putExtra("EventWindowState", mState);
+                    intent.putExtra("ExpireTime", strExpireTime);
+                    intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+                    startActivity(intent);
+                    break;
+
                 case ALWAYS_SVC_STATE_EVT_WIN_WARN:                                     //Warn?
+                    LogMsg("Event Window Warning, Expires " + strExpireTime);
                     intent = new Intent(this, LoginActivity.class);         //Login Activity
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.putExtra("EventWindowState", mState);
@@ -339,6 +357,7 @@ public class AlwaysService extends Service {
 
                 case ALWAYS_SVC_STATE_EVT_WIN_EXPIRE:
                     strNextEventTime = setNextEvtDtStr();
+                    LogMsg("Event Window Expired, next event: " + strNextEventTime);
                     intent = new Intent(this, IdleActivity.class);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.putExtra("ActTxt", "Event Missed.  Your next event is at " + strNextEventTime);
@@ -352,6 +371,7 @@ public class AlwaysService extends Service {
                         case ALWAYS_SVC_EVENT_NONE:                 //None
                         case ALWAYS_SVC_EVENT_LOGIN:                //Login
                         case ALWAYS_SVC_EVENT_LOGIN_FAIL:           //Login Fail
+                            LogMsg("Show Login Activity");
                             intent = new Intent(this, LoginActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             intent.putExtra("EventWindowState", mState);
@@ -361,6 +381,7 @@ public class AlwaysService extends Service {
                             break;
 
                         case ALWAYS_SVC_EVENT_START:                //Start event?
+                            LogMsg("Start Event");
                             StartEvent();                               //Start Event
                             break;
 
@@ -368,6 +389,7 @@ public class AlwaysService extends Service {
                             break;
 
                         case ALWAYS_SVC_EVENT_COMPLETE:             //Complete Event
+                            LogMsg("Event Complete");
                             boolean bOK = false;
                             mlShowIdleCnt = mlCount + ALWAYS_SVC_THANKYOU_DLY_CNT;          //change message before upload
                             mlBeginEvtUploadCnt = mlCount + ALWAYS_SVC_UPLOAD_DLY_CNT;      //set upload delay
@@ -375,6 +397,7 @@ public class AlwaysService extends Service {
 
                             bOK = EndParticipantEvent(mCurPatEvt.getPatEvtId());            //close the current event
                             //todo if not OK?
+                            SaveParticipantEvent(mCurPatEvt.getPatEvtId());   //Upload the event
 
                             strNextEventTime = setNextEvtDtStr();                           //set next event time
                             String strMsg = MSG_THANK_YOU;                                  //thank you msg
@@ -408,6 +431,8 @@ public class AlwaysService extends Service {
                     break;
 
                 case ALWAYS_SVC_STATE_EVT_WIN_COMPLETE:           //Upload Current State
+//20200218
+//                    SaveParticipantEvent(mCurPatEvt.getPatEvtId());   //Upload the event
 //                    if ((mlCount > mlShowIdleCnt) && (mlShowIdleCnt > 0)) {    //Done showing thank you?
 //                        mlShowIdleCnt = 0;                                          //reset idle count
 ////                        mState = ALWAYS_SVC_STATE_POLL;                             //Set Polling state
@@ -416,7 +441,9 @@ public class AlwaysService extends Service {
                     break;
 
                 case ALWAYS_SVC_STATE_EVT_WIN_UPLOAD:           //Upload Current State
-                    UploadParticipantEvent(mCurPatEvt.getPatEvtId());   //Upload the event
+//20200218
+//                    SaveandUploadParticipantEvent(mCurPatEvt.getPatEvtId());   //Upload the event
+                    UploadParticipantEvent(mCurPatEvt.getPatEvtId(), "");   //Upload the event
 //                    mState = ALWAYS_SVC_STATE_POLL;                     //back to polling
                     setServiceState(ALWAYS_SVC_STATE_POLL, false);                             //Set Polling state
                     break;
@@ -680,7 +707,7 @@ public class AlwaysService extends Service {
 
     /* Get the current participant from the database */
     private boolean GetDbVersionFromDb() {
-
+        boolean bRet = false;
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
         try {
             dba.open();                                                                 //open db
@@ -689,6 +716,8 @@ public class AlwaysService extends Service {
             while (crs.moveToNext()) {                                                  //Iterate Cursor
                 //set current Participant
                 mstrDbVersion = crs.getString(crs.getColumnIndex("dbVersionComment"));  //db version
+                bRet = true;
+                break;
             }
             crs.close();
             dba.close();
@@ -697,14 +726,13 @@ public class AlwaysService extends Service {
             Log.e("AlwaysService:GetDbVersionFromDb:NPEx", e.toString());
 
             mstrDbVersion = "Unable to get db Version";
-
-            return false;
         }
-        return true;
+        LogMsg("Database Version: " + mstrDbVersion);
+        return bRet;
     }
 
     private boolean GetDeviceFromDb() {
-
+        boolean bRet = false;
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
         try {
             dba.open();                                                                 //open db
@@ -714,6 +742,8 @@ public class AlwaysService extends Service {
                 //set current Participant
                 mCurDevice.setDeviceId(crs.getLong(crs.getColumnIndex("DeviceId")));        //DeviceId
                 mCurDevice.setDeviceAppId(crs.getString(crs.getColumnIndex("DeviceAppId")));//Device App Id (text)
+                bRet = true;
+                break;
             }
             crs.close();
             dba.close();
@@ -724,15 +754,14 @@ public class AlwaysService extends Service {
             Log.i("AlwaysService:GetDeviceFromDb:SetDefaults", e.toString());
             mCurDevice.setDeviceId(APP_DFLT_DEVICE_ID);         //default DeviceId
             mCurDevice.setDeviceAppId(APP_DFLT_DEVICE_APPID);   //default Device App Id (text)
-
-            return false;
         }
-        return true;
+        LogMsg("Device App ID: " + mCurDevice.getDeviceAppId());
+        return bRet;
     }
 
     /* Get the current participant from the database */
     private boolean GetPatFromDb() {
-
+        boolean bRet = false;
         DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
         try {
             dba.open();                                                                 //open db
@@ -751,8 +780,9 @@ public class AlwaysService extends Service {
                     //todo format the fully qualified number if empty
                 }
                 mCurPat.setStudyPatNumber(strFQPatNumber);                              //fully qualify patient number
-
                 mstrPatFilesRoot = strFQPatNumber;
+                bRet = true;
+                break;
             }
             crs.close();
             dba.close();
@@ -767,14 +797,13 @@ public class AlwaysService extends Service {
             mCurPat.setPatLocationId(APP_DFLT_PAT_LOCID);   //LocationId
             mCurPat.setPatNumber(APP_DFLT_PAT_NUM);         //Pat number
             mCurPat.setStudyPatNumber(APP_DFLT_PAT_STUDYPATNUM); //fully qualify patient number
-
-            return true;
         }
-        return true;
+        LogMsg("Get Participant: " + mCurPat.getStudyPatNumber());
+        return bRet;
     }
 
     private boolean GetProtocolFromDb() {
-
+        boolean bRet = false;
         ProtocolRevision newProtRev = new ProtocolRevision();             //current Protocol Rev
         ProtocolRevEvent newProtRevEvt = new ProtocolRevEvent();          //Current Protocol Rev Event
         EventActivity newProtRevEvtAct = new EventActivity();             //Current Protocol Rev Event Activity
@@ -921,19 +950,20 @@ public class AlwaysService extends Service {
             }
             crs.close();
             dba.close();
-
+            bRet = true;
         } catch (NullPointerException e) {
             Log.e("AlwaysService:GetProtocolFromDB:NPEx", e.toString());
             //todo handle
         }
-        return true;
+        LogMsg("Get Protocol Rev Id: " + mArrProtRev.get(0).getProtocolRevId());
+        return bRet;
     }
 
     /**
      * initialize directory structure
      */
     private boolean InitDirectoryTree() {
-
+        boolean bRet = false;
         Context ctx = getApplicationContext();
         File fDir;
         File fFile;
@@ -1021,12 +1051,14 @@ public class AlwaysService extends Service {
                 fStream.write(sBytes);
                 fStream.close();
             }
+
+            bRet = true;
         } catch (IOException e) {
             Log.e("AlwaysService:InitDirectoryTree:Readme:IOEx", e.toString());
             //todo handle
         }
-
-        return true;
+        LogMsg("Init Directory Tree");
+        return bRet;
     }
 
     //todo WHEN is installDatabase from Assets called?
@@ -1283,6 +1315,32 @@ public class AlwaysService extends Service {
         }
     }
 
+    public void SetAdminUnlockState(boolean topScreenSection) {
+        if (topScreenSection) {
+            if (adminUnlockState == 0)
+                adminUnlockState++;
+            else {
+                if (adminUnlockState == 2)
+                    GoToAdmin();
+                adminUnlockState = -1;
+            }
+        }
+        else {
+            if (adminUnlockState == -1 || adminUnlockState == 1)
+                adminUnlockState++;
+            else
+                adminUnlockState = -1;
+        }
+    }
+
+    private void GoToAdmin() {
+        Log.d("AlwaysService", "GoToAdmin");
+
+        Intent intent = new Intent(this, AdminActivity.class);
+        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+    }
     public void saveAdminChanges () {
         refreshParticipant();
         refreshDevice();
@@ -1347,8 +1405,10 @@ public class AlwaysService extends Service {
 //        if (username.equals(LOGIN_ADMIN_NAME)) {        //admin user name?
         if (username.toUpperCase().equals(LOGIN_ADMIN_NAME)) {        //admin user name?
             if (password.equals(LOGIN_ADMIN_PW)) {          //password OK?
+                LogMsg("Administrator Login");
                 return LOGIN_ADMIN_ERR_NO_ERR;                  //return admin login
             } else {                                        //otherwise
+                LogMsg("Administrator Login Fail");
                 return LOGIN_ADMIN_ERR_PW;                      //return admin password error
             }
         }
@@ -1385,12 +1445,15 @@ public class AlwaysService extends Service {
         }
 
         if (iPatID == -1) {                     //user not found
+            LogMsg("Administrator Login ID Fail");
             return LOGIN_PARTICPANT_ERR_ID;         //return Participant ID error
         }
 
         if (!strPatPW.equals(password)) {       //wrong password
+            LogMsg("Participant Login PW Fail");
             return LOGIN_PARTICPANT_ERR_PW;         //return Participant password error
         } else {                                //Otherwise
+            LogMsg("Participant Login");
             return LOGIN_PARTICPANT_ERR_NO_ERR;     //return Participant Login OK
         }
     }
@@ -1413,7 +1476,7 @@ public class AlwaysService extends Service {
             dba.open();                                                                 //open db
             dba.SavePatEvtActivityResponse(actResp);                                    //Save it
             dba.close();                                                                //close db
-
+            LogMsg("ActivityResult: " + mlCurPatEvtId + "," + actResp.getPatEvtActId() + "," + iResponseVal + "," + strResponseTxt + "," + strResponsePath);
         } catch (NullPointerException e ) {
             Log.e("AlwaysService:SaveActivityResult:NPEx", e.toString());
             //todo handle, try again?
@@ -1536,8 +1599,43 @@ public class AlwaysService extends Service {
         return bRet;
     }
 
+    //Save the output JSON; returns the file path of the output json;
+    public String SaveParticipantEvent(long lPatEvtId) {
+        String path = "";
+        String strFile = "";
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
+        try {
+            dba.open();                                                         //open
+
+            path = dba.CreateJSON("vOuterPatEvtAll",           //create JSON output
+                    "PatEventResponses",
+                    "vInnerPatEvtAll",
+                    "PatEventImages",
+                    "vInnerPatEvtImagesAll",
+                    lPatEvtId,
+                    getApplicationContext());                                   //returns full path of json object
+
+            if (!path.equals("")) {                                             //good path?
+                Path p = Paths.get(path);                                           //path object
+                strFile = p.getFileName().toString();                               //get filename only
+                LogMsg("Event JSON Created: " + strFile);
+                dba.UpdateTParticipantEventFileName(lPatEvtId, strFile);            //update the tParticipantEvent json file name
+            }
+
+        } catch (NullPointerException e ) {
+            Log.e(TAG + ":SaveParticipantEvent:NPEx", e.toString());
+            //todo handle, try again?
+        } catch (Exception e) {
+            Log.e(TAG + ":SaveParticipantEvent:Ex", e.toString());
+        } finally {
+            dba.close();
+        }
+        return path;
+    }
+
     //Upload a specific Participant Event
-    public String UploadParticipantEvent(long lPatEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
+    public String SaveandUploadParticipantEvent(long lPatEvtId) { //edit: call each time a participant event ends; returns the file path of the output json; figure out how to get the caller connected to this service
         String path = "";
         String strFile = "";
         String strPatEvtId = "";
@@ -1565,6 +1663,59 @@ public class AlwaysService extends Service {
                 dba.UpdateTParticipantEventFileName(lPatEvtId, strFile);            //update the tParticipantEvent json file name
             }
             dba.TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
+            UploadParticipantEventPictures(lPatEvtId);                          //upload event pictures
+
+        } catch (NullPointerException e ) {
+            Log.e(TAG + ":EndParticipantEvent:NPEx", e.toString());
+            //todo handle, try again?
+        } catch (Exception e) {
+            Log.e(TAG + ":EndParticipantEvent:Ex", e.toString());
+        } finally {
+            dba.close();
+        }
+        return path;
+    }
+
+    //edit: call each time a participant event ends;
+    // returns the file path of the output json; figure out how to get the caller connected to this service
+    //Upload a specific Participant Event
+    //the JSON has already been created
+    public String UploadParticipantEvent(long lPatEvtId, String strFile) {
+        String path = "";
+        String strPatEvtId = "";
+
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get and open database
+        try {
+            if (strFile.length() == 0) {                                                //no file name?
+                dba.open();                                                                 //open db
+                String strQry = "SELECT PatEvtId, PatEvtFileName FROM vPatEvtCompNoUpload";
+                strQry = strQry + " WHERE PatEvtId = " + lPatEvtId;
+                Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
+                while (crs.moveToNext()) {                                                      //Iterate Events
+                    strFile = crs.getString(crs.getColumnIndex("PatEvtFileName"));  //Get file name
+                }
+                crs.close();
+                dba.close();
+            }
+
+            strPatEvtId = Long.toString(lPatEvtId);                             //get PatEvtId
+
+            String strDir = APP_DIR_PARTICIPANTS + "/" + strFile.substring(0,APP_PAT_NUM_LEN) + APP_DIR_PARTICIPANT_EVENTS; //get dir
+            File fNewFile = new File(getApplicationContext().getExternalFilesDir(strDir), strFile);                         //get file
+            if (!fNewFile.isFile()) {                                                           //doesn't exist?
+                path = SaveParticipantEvent(lPatEvtId);                                             //save it now
+            }
+
+            if (fNewFile.isFile()) {                                                            //exists?
+                path = fNewFile.getAbsolutePath();
+
+                String strURL = URL_EVENT_UPLOAD + mCurDevice.getDeviceId() + "/" + mCurDevice.getDeviceAppId() + "/";  //get url
+//            strURL = "https://postman-echo.com/post";
+//            strURL = "https://icupapi.lionridgedev.com/v1/diary/basic";
+
+                String strResp = dba.TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
+                LogMsg("Upload " + strFile + " " + strResp);
+            }
             UploadParticipantEventPictures(lPatEvtId);                          //upload event pictures
 
         } catch (NullPointerException e ) {
@@ -1618,7 +1769,8 @@ public class AlwaysService extends Service {
                         strPicFile = fPicFile.getAbsolutePath();                                            //get fully qualified path
                         Log.d(TAG + "::UploadParticipantEventPictures", strFile);
 
-                        dba.TrySendPictureToServer(strURL, strPatEvtActId, strPicFile, strFile);
+                        String strResp = dba.TrySendPictureToServer(strURL, strPatEvtActId, strPicFile, strFile);
+                        LogMsg("Upload " + strFile + " " + strResp);
                     } catch (Exception e) {
                         Log.e(TAG + ":UploadParticipantEventPictures:Ex", e.toString());
                     }
@@ -1654,7 +1806,7 @@ public class AlwaysService extends Service {
             while (crs.moveToNext()) {                                                  //Iterate Events
                 lPatEvtId = crs.getInt(crs.getColumnIndex("PatEvtId"));         //Get Id
                 strFile = crs.getString(crs.getColumnIndex("PatEvtFileName"));  //Get file name
-//                UploadParticipantEvent(lPatEvtId);
+                UploadParticipantEvent(lPatEvtId, strFile);
 //                UploadParticipantEventPictures(lPatEvtId);
                 //todo enable catchup loading
             }
@@ -1667,6 +1819,42 @@ public class AlwaysService extends Service {
         return bRet;
     }
 
+    public void LogMsg(String logMsg) { //log message to "Log_yyyy-MM-dd.txt" (where "y" is year, "M" is month, and "d" is day) in the "Logs" folder
+        Context context = getApplicationContext();
+        DatabaseAccess dba = DatabaseAccess.getInstance(context);
+        try {
+            String path = getExternalFilesDir(APP_DIR_DATA_ARCHIVE + "/Logs").getPath();
+//            String fileName = "Log_" + (new SimpleDateFormat("yyyy-MM-dd")).format(Calendar.getInstance().getTime()) + ".txt";  //APP_LOG_FILENAME
+            String fileName = APP_LOG_FILENAME;
+            File newFile = new File(path, fileName);
+            if (!newFile.exists())
+            {
+                try
+                {
+                    newFile.createNewFile();
+                }
+                catch (IOException e)
+                {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            FileOutputStream fileOutputStream = context.openFileOutput(fileName, MODE_APPEND);
+            fileOutputStream.write(((new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(Calendar.getInstance().getTime())
+                    + " " + logMsg + System.lineSeparator()).getBytes());
+            fileOutputStream.close();
 
+            fileName = context.getFilesDir().toString() + "/" + fileName;
+            try { dba.MoveTo(fileName, newFile.getAbsolutePath(), true); }
+            catch (Exception e) {
+                Log.e("LogMsg:Ex", e.toString());
+                //todo handle
+            }
+        }
+        catch (Exception e) {
+            Log.e("DA:LogMsg:Ex", e.toString());
+            //todo handle
+        }
+    }
 }
 

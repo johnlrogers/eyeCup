@@ -197,10 +197,7 @@ public class AdminActivity extends AppCompatActivity {
             ; //edit: this occurs for successful change of patient info
 
         if (isBound) {
-
             alwaysService.saveAdminChanges();       //refresh service with new db info
-//            alwaysService.setServiceEventState(ALWAYS_SVC_STATE_EVT_WIN_OPEN);  //return to login window
-
             try {
                 finish();
 
@@ -237,7 +234,11 @@ public class AdminActivity extends AppCompatActivity {
                 bChgPW = true;
             }
             success = dba.SetParticipantInfo(bNewPat, bChgPW, pat);
-
+            if (success) {
+                if (isBound) {
+                    alwaysService.LogMsg("Save Participant Info: " + pat.getStudyPatNumber());
+                }
+            }
         } catch (NullPointerException e){
             Log.e("AdminActivity:SetPatient.SetParticipantInfo:NPEx", e.toString());
             //todo handle
@@ -259,7 +260,11 @@ public class AdminActivity extends AppCompatActivity {
             dba.open();
             dvc.setDeviceAppId(tbxDevice.getText().toString());
             success = dba.SetDeviceInfo(dvc);
-
+            if (success) {
+                if (isBound) {
+                    alwaysService.LogMsg("Save Device Info: " + dvc.getDeviceAppId());
+                }
+            }
         } catch (NullPointerException e){
             Log.e("AdminActivity:SetPatient.SetParticipantInfo:NPEx", e.toString());
             //todo handle

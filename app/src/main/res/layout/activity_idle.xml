@@ -16,6 +16,7 @@
 
         <TextView
             android:id="@+id/txtInstruction"
+            android:clickable="true"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
@@ -28,6 +29,7 @@
 
         <TextView
             android:id="@+id/txtDbVersion"
+            android:clickable="true"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
