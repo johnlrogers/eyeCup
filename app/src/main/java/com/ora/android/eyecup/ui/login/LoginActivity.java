@@ -2,6 +2,7 @@ package com.ora.android.eyecup.ui.login;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.KeyguardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -57,11 +58,23 @@ public class LoginActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_login);
 
+//        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+//                | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON);
+        setShowWhenLocked(true);
+        setTurnScreenOn(true);
+        KeyguardManager val = (KeyguardManager)getSystemService(Context.KEYGUARD_SERVICE);
+        try {
+            val.requestDismissKeyguard(this, null);
+        } catch (NullPointerException e) {
+            Log.e("Login:onCreate:requestDismissKeyguard:NPEx", e.toString());
+        }
+
         txtInstruction = findViewById(R.id.txtInstruction);
         mstrActTxt =  getIntent().getStringExtra("ExpireTime");
         String strMsg;
         mAlwaysServiceState = getIntent().getIntExtra("EventWindowState", 0);
-        if (mAlwaysServiceState != mPrevAlwaysServiceState) {
+        if ((mAlwaysServiceState != mPrevAlwaysServiceState)
+            || mAlwaysServiceState == ALWAYS_SVC_STATE_POLL ){
             switch (mAlwaysServiceState) {
                 case ALWAYS_SVC_STATE_EVT_WIN_OPEN:
                     strMsg = "Your event window is open.  You have until ";
@@ -69,15 +82,24 @@ public class LoginActivity extends AppCompatActivity {
                     strMsg = strMsg + " to perform this event.";
                     txtInstruction.setText(strMsg);
                     break;
-                case ALWAYS_SVC_STATE_EVT_WIN_WARN:
+
+                    case ALWAYS_SVC_STATE_EVT_WIN_WARN:
                     strMsg = "Warning: Your event window is closing.  You have until ";
                     strMsg = strMsg + mstrActTxt;
                     strMsg = strMsg + " to perform this event.";
                     txtInstruction.setText(strMsg);
                     break;
+
                 case ALWAYS_SVC_STATE_EVT_WIN_EXPIRE:
                     strMsg = "Your event Window has closed.  You will be prompted when your next window is open.";
                     txtInstruction.setText(strMsg);
+                    finish();
+                    break;
+
+                case ALWAYS_SVC_STATE_POLL:
+                    if (!mstrActTxt.equals("")) {
+                        txtInstruction.setText(mstrActTxt);
+                    }
                     break;
                 default:
                     txtInstruction.setText("");
@@ -116,7 +138,6 @@ public class LoginActivity extends AppCompatActivity {
                 if (loginResult == null) {
                     return;
                 }
-//                loadingProgressBar.setVisibility(View.GONE);
                 if (loginResult.getError() != null) {
                     showLoginFailed(loginResult.getError());
                 }
@@ -145,6 +166,10 @@ public class LoginActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {
                 loginViewModel.loginDataChanged(usernameEditText.getText().toString(),
                         passwordEditText.getText().toString());
+
+                if (isBound) {
+                    alwaysService.stopPlaying();
+                }
             }
         };
         usernameEditText.addTextChangedListener(afterTextChangedListener);
@@ -169,21 +194,84 @@ public class LoginActivity extends AppCompatActivity {
                 Log.d("Login:OnClickListener", "Login LoginListener");
                 boolean bLogin = false;
 
-//                loadingProgressBar.setVisibility(View.VISIBLE);
-//JLR 20200126
-//                loginViewModel.login(usernameEditText.getText().toString(),
-//                        passwordEditText.getText().toString());
                 bLogin = TryLogin(usernameEditText.getText().toString(), passwordEditText.getText().toString());
                 if (bLogin) {
                     try {
+                        if (isBound) {
+                            alwaysService.stopPlaying();
+                        }
                         finish();
                     } catch (Exception e) {
-                        Log.d("Login:OnClickListener:finish", e.toString());
+                        Log.e("Login:OnClickListener:finish", e.toString());
                     }
                 }
             }
         });
     }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+        // put your code here...
+//        stopPlaying();
+
+    }
+//    private void stopPlaying() {
+//        if (mPlayer != null) {
+//            mPlayer.stop();
+//            mPlayer.release();
+//            mPlayer = null;
+//        }
+//    }
+//    private void playAlertSound(boolean bWarn) {
+////        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+////        MediaPlayer thePlayer = MediaPlayer.create(getApplicationContext(), RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+//        stopPlaying();
+//
+//        try {
+//            if (bWarn) {
+//                Uri uriWarn = null;
+//                RingtoneManager ringtoneMgr = new RingtoneManager(this);
+//                ringtoneMgr.setType(RingtoneManager.TYPE_ALARM);
+//                Cursor alarmsCursor = ringtoneMgr.getCursor();
+//                int alarmsCount = alarmsCursor.getCount();
+//                Uri[] alarms = new Uri[alarmsCount];
+//                if (alarmsCount != 0 || alarmsCursor.moveToFirst()) {
+//                    while(!alarmsCursor.isAfterLast() && alarmsCursor.moveToNext()) {
+//                        int currentPosition = alarmsCursor.getPosition();
+//                        alarms[currentPosition] = ringtoneMgr.getRingtoneUri(currentPosition);
+//                        if (currentPosition == 12) {
+//                            uriWarn = alarms[currentPosition];
+//                        }
+//                    }
+//                    alarmsCursor.close();
+//                }
+//                if (uriWarn != null) {
+//                    mPlayer = MediaPlayer.create(getApplicationContext(), uriWarn);
+//                }
+//            } else {
+//                RingtoneManager notifyMgr = new RingtoneManager(this);
+//                notifyMgr.setType(TYPE_NOTIFICATION);
+//                Cursor notifyCursor = notifyMgr.getCursor();
+//                int notifyCount = notifyCursor.getCount();
+//                Uri[] notifications = new Uri[notifyCount];
+//                if (notifyCount != 0 || notifyCursor.moveToFirst()) {
+//                    while(!notifyCursor.isAfterLast() && notifyCursor.moveToNext()) {
+//                        int currentPosition = notifyCursor.getPosition();
+//                        notifications[currentPosition] = notifyMgr.getRingtoneUri(currentPosition);
+////                Log.i(notifications[currentPosition].);
+//                    }
+//                    notifyCursor.close();
+//                }
+////            Uri uri = notifyMgr.getRingtoneUri(12);
+//                mPlayer = MediaPlayer.create(getApplicationContext(), RingtoneManager.getActualDefaultRingtoneUri(getApplicationContext(), TYPE_NOTIFICATION));
+//            }
+//            mPlayer.start();
+//
+//        } catch (Exception e) {
+//            Log.e("Login:playAlertSound", e.toString());
+//        }
+//    }
 
     private boolean TryLogin(String strUser, String strPW) {
         boolean bLogin = false;

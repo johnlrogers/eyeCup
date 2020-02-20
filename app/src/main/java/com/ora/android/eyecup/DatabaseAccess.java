@@ -761,14 +761,7 @@ public class DatabaseAccess {
 
         File fNewFile = new File(ctx.getExternalFilesDir(strDir), strFile);
         String strNewFile = fNewFile.getAbsolutePath();
-//        File fNewFile2 = new File(ctx.getFilesDir(), strFile);
-//        String strNewFile2 = fNewFile2.getAbsolutePath();
-
-//        String relFileName = GetStudyPatNumber();       //output JSON file name (timestamp will be appended automatically)
-//        String relFileName = GetStudyPatNumber() + "_" + strDt + ".json";       //output JSON file name
-//        String relFileName = GetStudyPatNumber() + "_" + strDt + ".json";       //output JSON file name
         try {
-//            FileOutputStream fileOutputStream = ctx.openFileOutput(relFileName + ".json", MODE_PRIVATE);
             FileOutputStream fileOutputStream = ctx.openFileOutput(relFileName , MODE_PRIVATE);
             fileOutputStream.write(resultObj.toString(4).getBytes());
             fileOutputStream.close();
@@ -789,19 +782,14 @@ public class DatabaseAccess {
         if (!evtsFolder.isDirectory())
             evtsFolder.mkdir();
 
-        relFileName = ctx.getFilesDir().toString() + "/" + relFileName;
-//        try { MoveTo("files/" + relFileName, strNewFile, true); }
-        try { MoveTo(relFileName, strNewFile, true); }
-        catch (Exception e) {
-            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
-            //todo handle
-        }
-//        try { MoveTo("files/" + relFileName, strNewFile2, true); }
-//        try { MoveTo(relFileName, strNewFile2, true); }
-//        catch (Exception e) {
-//            Log.e("DA:CreateJSON:MoveTo:Ex", e.toString());
-//            //todo handle
-//        }
+        relFileName = ctx.getFilesDir().toString() + "/" + relFileName;          //get path and name of created file
+
+        try { MoveTo(relFileName, strNewFile, true); }                  //copy created to external files participant dir, keep orig
+        catch (Exception e) { Log.e("DA:CreateJSON:MoveTo:Ex", e.toString()); }   //todo handle
+                                                                                 //get internal files path and file
+        strNewFile = ctx.getFilesDir().toString() + "/" + APP_DIR_PARTICIPANTS + "/" + spn + "/Events" + "/" + relFileName;
+        try { MoveTo(relFileName, strNewFile, false); }                  //copy created to internal files participant dir, no keep orig
+        catch (Exception e) { Log.e("DA:CreateJSON:MoveTo:Ex", e.toString()); }   //todo handle
 
         return strNewFile;
     }

@@ -5,6 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.database.Cursor;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
@@ -41,6 +44,7 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import static android.media.RingtoneManager.TYPE_NOTIFICATION;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_INSTRUCTION;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_PICTURE;
 import static com.ora.android.eyecup.Globals.ACTIVITY_TYPE_QUESTION;
@@ -91,6 +95,7 @@ import static com.ora.android.eyecup.Globals.APP_DIR_DATA_ARCHIVE;
 import static com.ora.android.eyecup.Globals.APP_DIR_DATA_FRESH;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_EVENTS;
+import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_LOG;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_PICS;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL;
 import static com.ora.android.eyecup.Globals.APP_DIR_PROTOCOL_ARCHIVE;
@@ -122,6 +127,8 @@ public class AlwaysService extends Service {
     private long mlShowIdleCnt = 0;                                         //Ctr when to stop "thank you" after complete event
     private long mlBeginEvtUploadCnt = 0;                                   //Ctr when to start upload after complete event
     private long mlChkCatchupUploadCnt = 0;                                 //Ctr when to start upload after complete event
+
+    MediaPlayer mPlayer;                                                    //media player object
 
     private static Random random = new Random();
     private static int iSeed = random.nextInt(9999 - 1001 ) + 1001;  //random 1001 to 9998
@@ -181,11 +188,10 @@ public class AlwaysService extends Service {
         super.onCreate();
 
         glob = new Globals();                   //init Globals object
+        GetPatFromDb();                         //get participant form database (first, for logging)
         InitDirectoryTree();                    //create directory tree if not present
-
-        GetDbVersionFromDb();                   //get database verison form database
+        GetDbVersionFromDb();                   //get database version form database
         GetDeviceFromDb();                      //get participant form database
-        GetPatFromDb();                         //get participant form database
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
 
         restartForeground();                    //start service if not running
@@ -343,7 +349,8 @@ public class AlwaysService extends Service {
                     intent.putExtra("ExpireTime", strExpireTime);
                     intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                     startActivity(intent);
-                    break;
+                    playAlertSound(false);
+                break;
 
                 case ALWAYS_SVC_STATE_EVT_WIN_WARN:                                     //Warn?
                     LogMsg("Event Window Warning, Expires " + strExpireTime);
@@ -353,9 +360,18 @@ public class AlwaysService extends Service {
                     intent.putExtra("ExpireTime", strExpireTime);
                     intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                     startActivity(intent);
+                    playAlertSound(true);
                     break;
 
                 case ALWAYS_SVC_STATE_EVT_WIN_EXPIRE:
+//                    intent = new Intent(this, LoginActivity.class);         //Login Activity
+//                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//                    intent.putExtra("EventWindowState", mState);
+//                    intent.putExtra("ExpireTime", "Expired");
+//                    intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+//                    startActivity(intent);
+                    stopPlaying();
+
                     strNextEventTime = setNextEvtDtStr();
                     LogMsg("Event Window Expired, next event: " + strNextEventTime);
                     intent = new Intent(this, IdleActivity.class);
@@ -1336,10 +1352,19 @@ public class AlwaysService extends Service {
     private void GoToAdmin() {
         Log.d("AlwaysService", "GoToAdmin");
 
-        Intent intent = new Intent(this, AdminActivity.class);
-        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+//        Intent intent = new Intent(this, AdminActivity.class);
+//        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+//        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//        startActivity(intent);
+
+        LogMsg("Admin Login triggered");
+        Intent intent = new Intent(this, LoginActivity.class);         //Login Activity
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra("EventWindowState", mState);
+        intent.putExtra("ExpireTime", "Admin Login");
+        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
         startActivity(intent);
+
     }
     public void saveAdminChanges () {
         refreshParticipant();
@@ -1476,7 +1501,7 @@ public class AlwaysService extends Service {
             dba.open();                                                                 //open db
             dba.SavePatEvtActivityResponse(actResp);                                    //Save it
             dba.close();                                                                //close db
-            LogMsg("ActivityResult: " + mlCurPatEvtId + "," + actResp.getPatEvtActId() + "," + iResponseVal + "," + strResponseTxt + "," + strResponsePath);
+            LogMsg("ActivityResult: " + mlCurPatEvtId + "," + actResp.getProtrevevtactid() + "," + iResponseVal + "," + strResponseTxt + "," + strResponsePath);
         } catch (NullPointerException e ) {
             Log.e("AlwaysService:SaveActivityResult:NPEx", e.toString());
             //todo handle, try again?
@@ -1822,10 +1847,14 @@ public class AlwaysService extends Service {
     public void LogMsg(String logMsg) { //log message to "Log_yyyy-MM-dd.txt" (where "y" is year, "M" is month, and "d" is day) in the "Logs" folder
         Context context = getApplicationContext();
         DatabaseAccess dba = DatabaseAccess.getInstance(context);
+        String spn = getStudyPatNumber();
+        String strDir = APP_DIR_PARTICIPANTS + "/" + spn + APP_DIR_PARTICIPANT_LOG;
+        String strFile = spn;
+        strFile = strFile + APP_LOG_FILENAME;
+
         try {
-            String path = getExternalFilesDir(APP_DIR_DATA_ARCHIVE + "/Logs").getPath();
-//            String fileName = "Log_" + (new SimpleDateFormat("yyyy-MM-dd")).format(Calendar.getInstance().getTime()) + ".txt";  //APP_LOG_FILENAME
-            String fileName = APP_LOG_FILENAME;
+            String path = getExternalFilesDir(strDir).getPath();
+            String fileName = strFile;
             File newFile = new File(path, fileName);
             if (!newFile.exists())
             {
@@ -1850,11 +1879,79 @@ public class AlwaysService extends Service {
                 Log.e("LogMsg:Ex", e.toString());
                 //todo handle
             }
+
+            File fNewFile = new File(context.getExternalFilesDir(strDir), strFile);
+            String strNewFile = fNewFile.getAbsolutePath();
+            try { dba.MoveTo(fileName, strNewFile, true); }                  //copy created to external files participant dir, keep orig
+            catch (Exception e) { Log.e("logMsg:Ex", e.toString()); }   //todo handle
+            //get internal files path and file
+//            strNewFile = context.getFilesDir().toString() + "/" + APP_DIR_PARTICIPANTS + "/" + spn + "/Events" + "/" + relFileName;
+//            try { dba.MoveTo(fileName, strNewFile, false); }                  //copy created to internal files participant dir, no keep orig
+//            catch (Exception e) { Log.e("DA:CreateJSON:MoveTo:Ex", e.toString()); }   //todo handle
+
         }
         catch (Exception e) {
-            Log.e("DA:LogMsg:Ex", e.toString());
+            Log.e("LogMsg:Ex", e.toString());
             //todo handle
         }
     }
+
+    public void stopPlaying() {
+        if (mPlayer != null) {
+            mPlayer.stop();
+            mPlayer.release();
+            mPlayer = null;
+        }
+    }
+    public void playAlertSound(boolean bWarn) {
+//        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+//        MediaPlayer thePlayer = MediaPlayer.create(getApplicationContext(), RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+        stopPlaying();
+
+        try {
+            if (bWarn) {
+                Uri uriWarn = null;
+                RingtoneManager ringtoneMgr = new RingtoneManager(this);
+                ringtoneMgr.setType(RingtoneManager.TYPE_ALARM);
+                Cursor alarmsCursor = ringtoneMgr.getCursor();
+                int alarmsCount = alarmsCursor.getCount();
+                Uri[] alarms = new Uri[alarmsCount];
+                if (alarmsCount != 0 || alarmsCursor.moveToFirst()) {
+                    while(!alarmsCursor.isAfterLast() && alarmsCursor.moveToNext()) {
+                        int currentPosition = alarmsCursor.getPosition();
+                        alarms[currentPosition] = ringtoneMgr.getRingtoneUri(currentPosition);
+                        if (currentPosition == 12) {
+                            uriWarn = alarms[currentPosition];
+                        }
+                    }
+                    alarmsCursor.close();
+                }
+                if (uriWarn != null) {
+                    mPlayer = MediaPlayer.create(getApplicationContext(), uriWarn);
+                }
+            } else {
+                RingtoneManager notifyMgr = new RingtoneManager(this);
+                notifyMgr.setType(TYPE_NOTIFICATION);
+                Cursor notifyCursor = notifyMgr.getCursor();
+                int notifyCount = notifyCursor.getCount();
+                Uri[] notifications = new Uri[notifyCount];
+                if (notifyCount != 0 || notifyCursor.moveToFirst()) {
+                    while(!notifyCursor.isAfterLast() && notifyCursor.moveToNext()) {
+                        int currentPosition = notifyCursor.getPosition();
+                        notifications[currentPosition] = notifyMgr.getRingtoneUri(currentPosition);
+//                Log.i(notifications[currentPosition].);
+                    }
+                    notifyCursor.close();
+                }
+//            Uri uri = notifyMgr.getRingtoneUri(12);
+                mPlayer = MediaPlayer.create(getApplicationContext(), RingtoneManager.getActualDefaultRingtoneUri(getApplicationContext(), TYPE_NOTIFICATION));
+            }
+            mPlayer.start();
+
+        } catch (Exception e) {
+            Log.e("Login:playAlertSound", e.toString());
+        }
+    }
+
 }
 

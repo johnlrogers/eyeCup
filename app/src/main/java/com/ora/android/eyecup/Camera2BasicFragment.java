@@ -1262,7 +1262,8 @@ public class Camera2BasicFragment extends Fragment
                     Log.d(TAG, "request-after: " + request.get(CaptureRequest.SENSOR_SENSITIVITY));
                     Log.d(TAG, "result-after: " + result.get(CaptureResult.SENSOR_SENSITIVITY));
 //20200113 end
-                    showToast("Saved: " + mFile);
+//20200219 comment Toast
+//                    showToast("Saved: " + mFile);
                     Log.i(TAG, mFile.toString());
                     unlockFocus();
                 }
