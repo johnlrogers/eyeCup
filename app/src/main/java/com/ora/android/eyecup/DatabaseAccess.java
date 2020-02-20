@@ -4,7 +4,6 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.os.AsyncTask;
 import android.util.Log;
 
 import com.google.gson.JsonArray;
@@ -794,23 +793,22 @@ public class DatabaseAccess {
         return strNewFile;
     }
 
-    //    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful
-    public String TrySendJSONToServer(String strURL, String strPatEvtId, String filePath, String fileName) {        //returns null if unsuccessful
-
-        String response = "";
-        AsyncThread asyncThread = new AsyncThread(instance);
-        AsyncTask<String, Void, String> taskSendJSON = asyncThread.execute(strURL, strPatEvtId, filePath, fileName);
-        return response; //edit: get and return response synchronously
-    }
-
-    public String TrySendPictureToServer(String strURL, String strPatEvtActId, String filePath, String fileName) {  //returns null if unsuccessful
-
-        String response = "";
-        AsyncPicThread asyncThread = new AsyncPicThread(instance);
-        AsyncTask<String, Void, String> taskSendPic = asyncThread.execute(strURL, strPatEvtActId, filePath, fileName);
-        return response; //edit: get and return response synchronously
-    }
-
+//    //    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful
+//    public String TrySendJSONToServer(String strURL, String strPatEvtId, String filePath, String fileName) {        //returns null if unsuccessful
+//
+//        String response = "";
+//        AsyncThread asyncThread = new AsyncThread(instance);
+//        AsyncTask<String, Void, String> taskSendJSON = asyncThread.execute(strURL, strPatEvtId, filePath, fileName);
+//        return response; //edit: get and return response synchronously
+//    }
+//
+//    public String TrySendPictureToServer(String strURL, String strPatEvtActId, String filePath, String fileName) {  //returns null if unsuccessful
+//
+//        String response = "";
+//        AsyncPicThread asyncThread = new AsyncPicThread(instance);
+//        AsyncTask<String, Void, String> taskSendPic = asyncThread.execute(strURL, strPatEvtActId, filePath, fileName);
+//        return response; //edit: get and return response synchronously
+//    }
 
     public void SavePatEvtActivityResponse(TParticipantEventActivity actResp) {
         if (actResp == null)

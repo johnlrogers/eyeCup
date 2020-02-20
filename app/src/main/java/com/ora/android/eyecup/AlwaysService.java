@@ -8,6 +8,7 @@ import android.database.Cursor;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
@@ -34,7 +35,9 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -119,7 +122,8 @@ import static com.ora.android.eyecup.Globals.RESPONSE_TYPE_SLD;
 import static com.ora.android.eyecup.Globals.URL_EVENT_UPLOAD;
 import static com.ora.android.eyecup.Globals.URL_PICTURE_UPLOAD;
 
-public class AlwaysService extends Service {
+//public class AlwaysService extends Service {
+public class AlwaysService extends Service implements AsyncResponse {
 
     private static String TAG = "AlwaysService";                            //Service Tag
     private static AlwaysService mCurrentService;                           //Service object
@@ -528,33 +532,59 @@ public class AlwaysService extends Service {
 
     //return ProtRevEvtIdx
     //get the current event index, or the next one if no active window
+    //20200220 This function assumes all Events are Daily
+    //ToDo handle events that are not frequency Daily, EvtStart 1
+    //ToDo handle events that are not duration 0,null (forever)
     public int setNextProtRevEvtIdx() {
 
-        if (APP_DEMO_MODE) {
+        if (APP_DEMO_MODE) {                //Demo?
             if (miCurProtRevEvtIdx == -1) {     //first time through
-                miCurProtRevEvtIdx = 0;
-            } else {
-                if (miCurProtRevEvtIdx == 1) {  //alternate events in demo
+                miCurProtRevEvtIdx = 0;             //first event
+            } else {                            //otherwise
+                if (miCurProtRevEvtIdx == 1) {      //alternate events in demo
                     miCurProtRevEvtIdx = 0;
                 } else {
                     miCurProtRevEvtIdx = 1;
                 }
             }
-        } else {
-            DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
+        } else {                            //Not Demo?
             try {
-                dba.open();                                                                 //open db
-                String strQry = "SELECT * FROM tProtRevEvent";
-                strQry = strQry + " WHERE ProtRevId = " + mlCurProtRevId;
-                strQry = strQry + " ORDER BY EvtTimeOpen";                                  //select events //todo include Freq/Duration in sort
+                int iEvtIdx = 0;
+                String strTimeOpen = "";
+                String strTimeClose = "";
+                LocalTime tmOpen;
+                LocalTime tmClose;
+                LocalTime tmNow = LocalTime.now();                          //get current time
 
-                Cursor crs = dba.db.rawQuery(strQry, null);                     //get cursor to view
-                while (crs.moveToNext()) {                                                  //Iterate cursor
-                    //todo use times and state to determine next event
-                    miCurProtRevEvtIdx = 0;     //todo current or next event
+                if (miCurProtRevEvtIdx == -1) {                                     //first time through
+                    for (int i = 0; i < mArrProtRevEvt.size(); i++) {           //Iterate events that were loaded in TimeOpen order
+                        strTimeOpen = mArrProtRevEvt.get(i).getEventTimeOpen();
+                        strTimeClose = mArrProtRevEvt.get(i).getEventTimeClose();
+                        tmOpen = LocalTime.parse(strTimeOpen);
+                        tmClose = LocalTime.parse(strTimeClose);
+
+                        if (tmNow.isBefore(tmClose)) {                              //we are BEFORE close
+                            //                        if (tmNow.isAfter(tmOpen)) {                                //we are AFTER open
+                            if (miCurProtRevEvtIdx != i) {                              //NOT the current event
+                                iEvtIdx = i;                                                //SET The new event index
+                                break;                                                      //stop iterating
+                            }
+                            //                        }
+                        }
+                    }
+                    miCurProtRevEvtIdx = iEvtIdx;       //set the new current Event Idx (back to 0 if not found)
+                } else {
+                    if ((mState == ALWAYS_SVC_STATE_EVT_WIN_EXPIRE)         //we just expired? or
+                            || ((mState == ALWAYS_SVC_STATE_EVT_WIN_RUNNING
+                                && mEventState == ALWAYS_SVC_EVENT_COMPLETE)) ) {     //we just completed?
+                        int iIdx = miCurProtRevEvtIdx;                          //get current Event index
+                        iIdx++;                                                 //increment
+                        if (iIdx >= mArrProtRevEvt.size()) {                    //to high?
+                            iIdx = 0;                                               //first
+                        }
+                        miCurProtRevEvtIdx = iIdx;                              //set current index
+                    }
                 }
-                crs.close();
-                dba.close();
             } catch (NullPointerException e) {
                 Log.e("AlwaysService:setNextProtRevEvtIdx:NPEx", e.toString());
                 //todo handle
@@ -581,28 +611,52 @@ public class AlwaysService extends Service {
 
     public String setNextEvtDtStr() {
 
-        LocalDateTime locDt = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
-        LocalDateTime locDtFlr =  locDt.truncatedTo(ChronoUnit.MINUTES);
-//        LocalDateTime locDtCeiling =  locDt.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
-        DateTimeFormatter fmtDt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        LocalTime tmNow = LocalTime.now();                                          //get current time
+        LocalDate dtNextEvt = LocalDate.now();                                      //get current date
+        LocalDateTime locDt = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);  //get current DateTime to minutes
+        DateTimeFormatter fmtDt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");  //set up format
 
-        if (APP_DEMO_MODE) {
-            mDtNextEvtStart = locDt.plusMinutes(APP_DEMO_MODE_MIN_OPEN);
+        if (APP_DEMO_MODE) {                                                //demo?
+            mDtNextEvtStart = locDt.plusMinutes(APP_DEMO_MODE_MIN_OPEN);        //set values
             mDtNextEvtWarn = locDt.plusMinutes(APP_DEMO_MODE_MIN_WARN);
             mDtNextEvtExpire = locDt.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
-        } else {
-            DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());   //get db access
-            try {
-                dba.open();                                                                 //open db
-                mDtNextEvtStart = locDt.plusMinutes(APP_DEMO_MODE_MIN_OPEN);        //todo get actual next
-                mDtNextEvtWarn = locDt.plusMinutes(APP_DEMO_MODE_MIN_WARN);
-                mDtNextEvtExpire = locDt.plusMinutes(APP_DEMO_MODE_MIN_EXPIRE);
-
-                dba.close();
-            } catch (NullPointerException e) {
-                Log.e("AlwaysService:getNextEvtDtStr:NPEx", e.toString());
-                //todo handle
+        } else {                                                            //NOT demo
+            if (miCurProtRevEvtIdx == -1) {                                     //first time through
+                setNextProtRevEvtIdx();                                             //set next index (miCurProtRevEvtIdx)
+            } else {
+                if ((mState == ALWAYS_SVC_STATE_EVT_WIN_EXPIRE)         //we just expired? or
+                 || (mState == ALWAYS_SVC_STATE_EVT_WIN_RUNNING)) {     //we just completed?
+                    int iIdx = miCurProtRevEvtIdx;                          //get current Event index
+                    iIdx++;                                                 //increment
+                    if (iIdx >= mArrProtRevEvt.size()) {                    //to high?
+                        iIdx = 0;                                               //first
+                    }
+                    miCurProtRevEvtIdx = iIdx;                              //set current index
+                }
             }
+            String strTimeOpen = "";
+            String strTimeWarn = "";
+            String strTimeClose = "";
+            LocalTime tmOpen;
+            LocalTime tmWarn;
+            LocalTime tmClose;
+
+            strTimeOpen = mArrProtRevEvt.get(miCurProtRevEvtIdx).getEventTimeOpen();
+            strTimeWarn = mArrProtRevEvt.get(miCurProtRevEvtIdx).getEventTimeWarn();
+            strTimeClose = mArrProtRevEvt.get(miCurProtRevEvtIdx).getEventTimeClose();
+            tmOpen = LocalTime.parse(strTimeOpen);
+            tmWarn = LocalTime.parse(strTimeWarn);
+            tmClose = LocalTime.parse(strTimeClose);
+
+            if (tmNow.isAfter(tmClose)) {                              //we are AFTER Close, so it must be tomorrow
+                dtNextEvt = dtNextEvt.plusDays(1);                          //add a day
+            }
+
+            mDtNextEvtStart = dtNextEvt.atTime(tmOpen);
+            mDtNextEvtWarn = dtNextEvt.atTime(tmWarn);
+            mDtNextEvtExpire = dtNextEvt.atTime(tmClose);
+            Log.d(TAG, "setNextEvtDtStr: " + mDtNextEvtStart.format(fmtDt) + ", " + mDtNextEvtWarn.format(fmtDt) + ", " + mDtNextEvtExpire.format(fmtDt));
+            LogMsg("setNextEvtDtStr: " + mDtNextEvtStart.format(fmtDt) + ", " + mDtNextEvtWarn.format(fmtDt) + ", " + mDtNextEvtExpire.format(fmtDt));
         }
 
 //        return mDtNextEvtStart.toString();
@@ -707,19 +761,6 @@ public class AlwaysService extends Service {
         getNextEvtWinState();       //check for state update
         return mState;
     }
-
-//    private int StartProtocol() {
-//
-//        mlCurProtRevId = mArrProtRev.get(setNextProtRevIdx()).getProtocolRevId();                                   //get Current Protocol Rev Id
-//        mlCurProtRevEvtId = mArrProtRevEvt.get(setNextProtRevEvtIdx()).getProtocolRevEventId();                     //get Current Protocol Rev Event Id
-//        mlCurProtRevEvtActId = mArrProtRevEvtAct.get(setNextProtRevEvtActIdx()).getProtocolRevEventActivityId();    //get Current Protocol Rev Event Activity Id
-//
-//        mlCurPatEvtId = StartParticipantEvent();
-//
-//        GotoEvtAct(miCurActIdx);
-//
-//        return miCurActIdx;
-//    }
 
     /* Get the current participant from the database */
     private boolean GetDbVersionFromDb() {
@@ -1687,7 +1728,8 @@ public class AlwaysService extends Service {
                 strFile = p.getFileName().toString();                               //get filename only
                 dba.UpdateTParticipantEventFileName(lPatEvtId, strFile);            //update the tParticipantEvent json file name
             }
-            dba.TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
+//            dba.TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
+            TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
             UploadParticipantEventPictures(lPatEvtId);                          //upload event pictures
 
         } catch (NullPointerException e ) {
@@ -1738,7 +1780,8 @@ public class AlwaysService extends Service {
 //            strURL = "https://postman-echo.com/post";
 //            strURL = "https://icupapi.lionridgedev.com/v1/diary/basic";
 
-                String strResp = dba.TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
+//                String strResp = dba.TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
+                String strResp = TrySendJSONToServer(strURL, strPatEvtId, path, strFile);        //upload event JSON
                 LogMsg("Upload " + strFile + " " + strResp);
             }
             UploadParticipantEventPictures(lPatEvtId);                          //upload event pictures
@@ -1794,7 +1837,8 @@ public class AlwaysService extends Service {
                         strPicFile = fPicFile.getAbsolutePath();                                            //get fully qualified path
                         Log.d(TAG + "::UploadParticipantEventPictures", strFile);
 
-                        String strResp = dba.TrySendPictureToServer(strURL, strPatEvtActId, strPicFile, strFile);
+//                        String strResp = dba.TrySendPictureToServer(strURL, strPatEvtActId, strPicFile, strFile);
+                        String strResp = TrySendPictureToServer(strURL, strPatEvtActId, strPicFile, strFile);
                         LogMsg("Upload " + strFile + " " + strResp);
                     } catch (Exception e) {
                         Log.e(TAG + ":UploadParticipantEventPictures:Ex", e.toString());
@@ -1853,7 +1897,12 @@ public class AlwaysService extends Service {
         strFile = strFile + APP_LOG_FILENAME;
 
         try {
-            String path = getExternalFilesDir(strDir).getPath();
+            String path = "";
+            try {
+                path = getExternalFilesDir(strDir).getPath();
+            } catch (NullPointerException ex) {
+                Log.e("LogMsg:getPath:NPEx", ex.toString());
+            }
             String fileName = strFile;
             File newFile = new File(path, fileName);
             if (!newFile.exists())
@@ -1953,5 +2002,33 @@ public class AlwaysService extends Service {
         }
     }
 
+    //    public String TrySendJSONToServer(String filePath) {        //returns null if unsuccessful
+    public String TrySendJSONToServer(String strURL, String strPatEvtId, String filePath, String fileName) {        //returns null if unsuccessful
+        Context context = getApplicationContext();
+        DatabaseAccess dba = DatabaseAccess.getInstance(context);
+
+        String response = "";
+        AsyncThread asyncThread = new AsyncThread(dba);
+        asyncThread.delegate = this;
+        AsyncTask<String, Void, String> taskSendJSON = asyncThread.execute(strURL, strPatEvtId, filePath, fileName);
+        return response; //edit: get and return response synchronously
+    }
+
+    public String TrySendPictureToServer(String strURL, String strPatEvtActId, String filePath, String fileName) {  //returns null if unsuccessful
+        Context context = getApplicationContext();
+        DatabaseAccess dba = DatabaseAccess.getInstance(context);
+
+        String response = "";
+        AsyncPicThread asyncThread = new AsyncPicThread(dba);
+        asyncThread.delegate = this;
+        AsyncTask<String, Void, String> taskSendPic = asyncThread.execute(strURL, strPatEvtActId, filePath, fileName);
+        return response; //edit: get and return response synchronously
+    }
+
+    @Override
+    public void processFinish(String strOut){
+        //
+        LogMsg(strOut);
+    }
 }
 

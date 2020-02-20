@@ -14,8 +14,12 @@ import javax.net.ssl.HttpsURLConnection;
 
 public class AsyncPicThread extends AsyncTask<String, Void, String> {
 
+    public AsyncResponse delegate=null;
     private long mlPatEvtActId = 0;
     private DatabaseAccess dba;
+    private int iResponseCode;
+    private String strResponseMsg = "";
+    private String attachmentFileName;
 
     AsyncPicThread(DatabaseAccess dba) { this.dba = dba; }
 
@@ -30,7 +34,14 @@ public class AsyncPicThread extends AsyncTask<String, Void, String> {
         super.onPostExecute(result);
         Log.i("AsyncPicThread:onPostExecute", result); // this is expecting a response code to be sent from your server upon receiving the POST data
 
-        if (result.equals("OK")) {
+        String strResult = "Upload " + attachmentFileName + " result: " + result; //get msg for log
+        try {
+            delegate.processFinish(strResult);      //send to Interface for AlwaysService
+        } catch (Exception e) {
+            Log.e("AsyncPicThread:delegate.processFinish", e.toString());
+        }
+
+        if (result.equals("200 OK")) {
             try {
                 dba.open();                                                 //open db
                 dba.UpdateTParticipantEventActivityDtUpload(mlPatEvtActId); //set upload date
@@ -46,8 +57,6 @@ public class AsyncPicThread extends AsyncTask<String, Void, String> {
     @Override
     protected String doInBackground(String... strings) {
 
-        int iResponseCode;
-        String strResponseMsg = "";
         HttpsURLConnection httpsUrlConnection = null;
 
         // sample https://stackoverflow.com/questions/11766878/sending-files-using-post-with-httpurlconnection
@@ -55,7 +64,7 @@ public class AsyncPicThread extends AsyncTask<String, Void, String> {
             URL url = new URL(strings[0]);              //url
             mlPatEvtActId = Long.valueOf(strings[1]);   //Pat Evt Id
             String attachmentName = strings[2];         //full path file
-            String attachmentFileName = strings[3];     //actual name
+            attachmentFileName = strings[3];     //actual name
             String crlf = "\r\n";
             String twoHyphens = "--";
             String boundary =  "*****";
@@ -84,29 +93,16 @@ public class AsyncPicThread extends AsyncTask<String, Void, String> {
             FileInputStream is = new FileInputStream(attachmentName);               //send content
             byte[] buff = getBytes(is);
             request.write(buff);
-//            getBytes(is);
-//            request.write(getBytes(is));
 
             request.writeBytes(crlf);
             request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);      //send end content wrapper
 
             request.flush();                                                        //flush output stream
             request.close();                                                        //close output stream
-/*
-            InputStream responseStream = new BufferedInputStream(httpsUrlConnection.getInputStream());
-            BufferedReader responseStreamReader = new BufferedReader(new InputStreamReader(responseStream));
-            String line = "";
-            StringBuilder stringBuilder = new StringBuilder();
-            while ((line = responseStreamReader.readLine()) != null) {
-                stringBuilder.append(line).append("\n");
-            }
-            responseStreamReader.close();
-            String response = stringBuilder.toString();
-*/
+
             iResponseCode = httpsUrlConnection.getResponseCode();                   //reponses
             strResponseMsg = httpsUrlConnection.getResponseMessage();
             Log.i(attachmentFileName + " Upload Status", iResponseCode + " " + strResponseMsg);
-//            Log.i("PicMSG" , strResponseMsg);
         }
         catch (Exception ex) {
             Log.e("AsyncPicThread:doInBackground:Ex", ex.toString());

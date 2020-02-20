@@ -13,8 +13,12 @@ import javax.net.ssl.HttpsURLConnection;
 
 public class AsyncThread extends AsyncTask<String, Void, String> {
 
+    public AsyncResponse delegate=null;
     private long mlPatEvtId = 0;
     private DatabaseAccess dba;
+    private int iResponseCode;
+    private String strResponseMsg = "";
+    private String attachmentFileName;
 
     AsyncThread(DatabaseAccess dba) { this.dba = dba; }
 
@@ -29,7 +33,14 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
         super.onPostExecute(result);
         Log.i("AsyncThread:onPostExecute", result); // this is expecting a response code to be sent from your server upon receiving the POST data
 
-        if (result.equals("OK")) {
+        String strResult = "Upload " + attachmentFileName + " result: " + result; //get msg for log
+        try {
+            delegate.processFinish(strResult);      //send to Interface for AlwaysService
+        } catch (Exception e) {
+            Log.e("AsyncThread:delegate.processFinish", e.toString());
+        }
+
+        if (result.equals("200 OK")) {
             try {
                 dba.open();                                                 //open db
                 dba.UpdateTParticipantEventDtUpload(mlPatEvtId);            //set upload date
@@ -44,7 +55,7 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
 
     @Override
     protected String doInBackground(String... strings) {
-        int iResponseCode;
+        int iResponseCode = 0;
         String strResponseMsg = "";
         HttpsURLConnection httpsUrlConnection = null;
 
@@ -52,7 +63,7 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
             URL url = new URL(strings[0]);              //url
             mlPatEvtId = Long.valueOf(strings[1]);      //Pat Evt Id
             String attachmentName = strings[2];         //full path file
-            String attachmentFileName = strings[3];     //actual name
+            attachmentFileName = strings[3];     //actual name
             String strJson;
 
             //url = new URL("https://icupapi.lionridgedev.com/");
@@ -80,7 +91,6 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
             }
 
             DataOutputStream request = new DataOutputStream(httpsUrlConnection.getOutputStream());
-//            request.writeBytes("PostData=" + strJson);
             request.writeBytes(strJson);
             request.flush();            //flush output stream
             request.close();            //close output stream
@@ -88,7 +98,6 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
             iResponseCode = httpsUrlConnection.getResponseCode();                   //reponses
             strResponseMsg = httpsUrlConnection.getResponseMessage();
             Log.i(attachmentFileName + " Upload Status", iResponseCode + " " + strResponseMsg);
-
         }
         catch (Exception ex) {
             Log.e("AsyncThread:doInBackground:Ex", ex.toString());
@@ -98,6 +107,6 @@ public class AsyncThread extends AsyncTask<String, Void, String> {
                 httpsUrlConnection.disconnect();
             }
         }
-        return strResponseMsg;
+        return iResponseCode + " " + strResponseMsg;
     }
 }
