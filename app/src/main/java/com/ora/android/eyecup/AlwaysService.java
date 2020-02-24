@@ -29,9 +29,11 @@ import com.ora.android.eyecup.ui.login.LoginActivity;
 import com.ora.android.eyecup.utilities.Notification;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -192,10 +194,15 @@ public class AlwaysService extends Service implements AsyncResponse {
         super.onCreate();
 
         glob = new Globals();                   //init Globals object
-        GetPatFromDb();                         //get participant form database (first, for logging)
+        GetPatFromDb();                         //get participant from database (first, for logging)
         InitDirectoryTree();                    //create directory tree if not present
-        GetDbVersionFromDb();                   //get database version form database
-        GetDeviceFromDb();                      //get participant form database
+        GetDbVersionFromDb();                   //get database version from database
+        GetDeviceFromDb();                      //get participant from database
+        String protocolPath = NewProtocolPath();//check protocol directory for an existing .json file, and get its full path if it exists
+        if (protocolPath != null) {
+            LoadNewProtocol(protocolPath);      //load the revised .json protocol file to the SQLite database
+            MoveProtocolToArchive(protocolPath);//move the .json file to the protocol archive directory
+        }
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
 
         restartForeground();                    //start service if not running
@@ -1012,7 +1019,8 @@ public class AlwaysService extends Service implements AsyncResponse {
             Log.e("AlwaysService:GetProtocolFromDB:NPEx", e.toString());
             //todo handle
         }
-        LogMsg("Get Protocol Rev Id: " + mArrProtRev.get(0).getProtocolRevId());
+        if (mArrProtRev.size() != 0)
+            LogMsg("Get Protocol Rev Id: " + mArrProtRev.get(0).getProtocolRevId());
         return bRet;
     }
 
@@ -1886,6 +1894,63 @@ public class AlwaysService extends Service implements AsyncResponse {
             //todo handle
         }
         return bRet;
+    }
+
+    private String NewProtocolPath() { //return full path of file, or "null" if it doesn't exist
+        String directory = "";
+        String filePath = null;
+        try {
+            directory = getExternalFilesDir(APP_DIR_PROTOCOL).getPath();
+            File[] directoryFiles = new File(directory).listFiles();
+            for (int i = 0; i < directoryFiles.length; i++) {
+                String fileName = directoryFiles[i].getName();
+                String extension = "";
+                int dotIndex = fileName.lastIndexOf('.');
+                if (dotIndex > 0)
+                    extension = fileName.substring(dotIndex + 1);
+                if (extension.equals("json"))
+                    filePath = fileName;
+            }
+        } catch (NullPointerException ex) {
+            Log.e("LogMsg:NewProtocolPath:NPEx", ex.toString());
+        }
+        if (filePath != null)
+            return directory + "/" + filePath;
+        return null;
+    }
+    private void LoadNewProtocol(String fullPath) {
+        DatabaseAccess dba = DatabaseAccess.getInstance(getApplicationContext());
+        dba.open();
+        try {
+            dba.JSONProtocolRevision(fullPath, getApplicationContext(), getExternalFilesDir(APP_DIR_DATA_ARCHIVE).getPath());
+        }
+        catch (IOException ioex) {
+            Log.e("LogMsg:LoadNewProtocol:NPEx", ioex.toString());
+        }
+        dba.close();
+    }
+    private void MoveProtocolToArchive(String fullPath) {
+        String fileName = "";
+        int slashIndex = fullPath.lastIndexOf('/');
+        if (slashIndex > 0) {
+            fileName = fullPath.substring(slashIndex + 1);
+        }
+        String newFullPath = getExternalFilesDir(APP_DIR_PROTOCOL_ARCHIVE) + "/" + fileName;
+        try {
+            new File(newFullPath).createNewFile();
+            try (InputStream in = new FileInputStream(fullPath)) {
+                try (OutputStream out = new FileOutputStream(newFullPath)) {
+                    byte[] buf = new byte[1024];
+                    int len;
+                    while ((len = in.read(buf)) > 0)
+                        out.write(buf, 0, len);
+                }
+            }
+        }
+        catch (IOException ioex) {
+            Log.e("LogMsg:MoveProtocolToArchive:NPEx", ioex.toString());
+        }
+        new File(fullPath).delete();
     }
 
     public void LogMsg(String logMsg) { //log message to "Log_yyyy-MM-dd.txt" (where "y" is year, "M" is month, and "d" is day) in the "Logs" folder

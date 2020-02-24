@@ -313,15 +313,17 @@ public class DatabaseAccess {
         c.close();
         return selectedVals;
     }
-    public String BackupDB() { //save copy of the SQLite database on the device to the returned internal storage path
-        String fileName = FormatFileName("files/Archives/ORADb_Backup", ".db",
-                new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss"));
-        try { MoveTo(db.getPath(), fileName, true); }
+    public String BackupDB(Context context, String dbArchiveDirectory) { //save copy of the SQLite database on the device to the returned external storage path
+        String fileName = "ORADb_Backup_" + Calendar.getInstance().getTime() + ".db";
+        String fullPath = dbArchiveDirectory + "/" + fileName;
+        try {
+            MoveTo(db.getPath(), fullPath, true);
+        }
         catch (Exception e) {
             Log.e("DA:BackupDb:Ex", e.toString());
             //todo handle
         }
-        return fileName;
+        return fullPath;
     }
     private void ClearTable(String name) {
         if (name == null)
@@ -535,7 +537,7 @@ public class DatabaseAccess {
             db.execSQL("INSERT INTO tProtRevEvent (ProtRevEvtId, ProtRevId, ProtRevEvtName, EvtFreq, EvtStart, EvtDaysDuration, EvtTimeOpen, " +
                     "EvtTimeWarn, EvtTimeClose) VALUES (" + entity.getProtocolRevEventId().toString() + ", " +
                     entity.getProtocolRevId().toString() + ", '" + entity.getProtocolRevEventName() + "', '" + entity.getFrequencyCode()
-                    + "', " + entity.getEventDayStart().toString() + "', " + entity.getEventDaysDuration().toString() + ", '" + entity.getEventTimeOpen() + "', '" +
+                    + "', " + entity.getEventDayStart().toString() + ", " + entity.getEventDaysDuration().toString() + ", '" + entity.getEventTimeOpen() + "', '" +
                     entity.getEventTimeWarn() + "', '" + entity.getEventTimeClose() + "');");
         }
         catch (Exception e) {
@@ -579,8 +581,8 @@ public class DatabaseAccess {
             //todo handle
         }
     }
-    public void JSONProtocolRevision(String jsonFilePath) throws IOException { //edit: call whenever a new JSON protocol revision file is put in path "jsonFilePath"
-        if (jsonFilePath == null)
+    public void JSONProtocolRevision(String jsonFilePath, Context context, String dbArchiveDirectory) throws IOException {
+        if (jsonFilePath == null || context == null || dbArchiveDirectory == null)
             return; //returned for method misuse
         JsonParser parser = new JsonParser();
         JsonObject jsonObj = (JsonObject)parser.parse(new FileReader(jsonFilePath));
@@ -588,8 +590,10 @@ public class DatabaseAccess {
                 jsonObj.get("ProtocolName").getAsString(), jsonObj.get("ProtocolRevName").getAsString(),
                 jsonObj.get("ProtocolRevDt").getAsString(), jsonObj.get("ProtocolRevEventCnt").getAsLong(),
                 ToPREEntityList(ValidateJsonArray(jsonObj, "ProtocolRevEvents")));
-        BackupDB();
-        //edit: clear participant tables' data
+        BackupDB(context, dbArchiveDirectory);
+        ClearTable("tParticipant");
+        ClearTable("tParticipantEvent");
+        ClearTable("tParticipantEventActivity");
         ClearTable("tProtRevEventActivity");
         ClearTable("tProtRevEvent");
         ClearTable("tProtRev");
@@ -638,27 +642,79 @@ public class DatabaseAccess {
             JsonObject ea = eventActivities.get(i).getAsJsonObject();
             entityList.add(new EventActivity(ea.get("ProtocolRevEventActivityId").getAsLong(),
                     ea.get("ProtocolRevEventId").getAsLong(), ea.get("ActivitySeq").getAsLong(), ea.get("ActivityId").getAsLong(),
-                    ea.get("ProtRevEvtApplyTo").getAsString(), ea.get("ActivityTypeId").getAsLong(),
-                    ea.get("ActivityTypeCode").getAsString(), OptionalOrDefault(ea, "ActivityText", ""),
+                    OptionalOrDefault(ea, "ProtRevEvtApplyTo", ""), ea.get("ActivityTypeId").getAsLong(),
+                    OptionalOrDefault(ea, "ActivityTypeCode", ""), OptionalOrDefault(ea, "ActivityText", ""),
                     ea.get("ActivityResponseTypeId").getAsLong(), ea.get("ActivityResponseTypeCode").getAsString(),
-                    ea.get("ActivityResponseCnt").getAsLong(), ToAREntityList(OptionalOrDefault(ea, "ActivityResponses",
+                    ea.get("ActivityResponseCnt").getAsLong(), ToAREntityList(ea, OptionalOrDefault(ea, "ActivityResponses",
                     new JsonArray())), OptionalOrDefault(ea, "MinRange", 0L),
                     OptionalOrDefault(ea, "MaxRange", 0L), OptionalOrDefault(ea,
                     "ActivityPictureCode", "")));
         }
         return entityList;
     }
-    private List<ActivityResponse> ToAREntityList(JsonArray activityResponse) {
+    private List<ActivityResponse> ToAREntityList(JsonObject eventActivity, JsonArray activityResponse) {
         if (activityResponse == null)
             return null; //default for method misuse
         List<ActivityResponse> entityList = new ArrayList<>();
         for (int i = 0; i < activityResponse.size(); i++) {
-            JsonObject ar = activityResponse.get(i).getAsJsonObject();
-            entityList.add(new ActivityResponse(ar.get("ProtocolRevEventActivityId").getAsLong(), ar.get("ActRspId").getAsLong(),
-                    ar.get("ActId").getAsLong(), ar.get("ActRspSeq").getAsLong(), ar.get("ActRspVal").getAsLong(),
-                    ar.get("ActRspTxt").getAsString()));
+            String arTxt = activityResponse.get(i).getAsString();
+            long arId = GetActivityResponseId(arTxt);
+            entityList.add(new ActivityResponse(eventActivity.get("ProtocolRevEventActivityId").getAsLong(),
+                    arId, eventActivity.get("ActivityId").getAsLong(), GetActivityResponseAvailRspSeq(arId),
+                    GetActivityResponseAvailRspVal(arId), arTxt));
         }
         return entityList;
+    }
+    private long GetActivityResponseId(String actRspTxt) { //get "ActRspId" for corresponding "actRspTxt", or "-1" if "actRspTxt" is invalid
+        long actRespId = -1;
+        try {
+            c = db.rawQuery("SELECT ActRspId FROM tActivityResponseAvail where ActRspTxt = '" + actRspTxt + "' LIMIT 1;",
+                    new String[] { });
+        }
+        catch (Exception e) {
+            Log.e("DA:GetActivityResponseId:Ex", e.toString());
+            //todo handle
+        }
+        if (c.getCount() != 0) {
+            c.moveToFirst();
+            actRespId = c.getLong(0);
+        }
+        c.close();
+        return actRespId;
+    }
+    private long GetActivityResponseAvailRspSeq(long actRspId) {
+        long actRspSeq = -1;
+        try {
+            c = db.rawQuery("SELECT ActRspSeq FROM tActivityResponseAvail where ActRspId = " + actRspId + " LIMIT 1;",
+                    new String[] { });
+        }
+        catch (Exception e) {
+            Log.e("DA:GetActivityResponseAvailRspSeq:Ex", e.toString());
+            //todo handle
+        }
+        if (c.getCount() != 0) {
+            c.moveToFirst();
+            actRspSeq = c.getLong(0);
+        }
+        c.close();
+        return actRspSeq;
+    }
+    private long GetActivityResponseAvailRspVal(long actRspId) {
+        long actRespVal = -1;
+        try {
+            c = db.rawQuery("SELECT ActRspVal FROM tActivityResponseAvail where ActRspId = " + actRspId + " LIMIT 1;",
+                    new String[] { });
+        }
+        catch (Exception e) {
+            Log.e("DA:GetActivityResponseAvailRspVal:Ex", e.toString());
+            //todo handle
+        }
+        if (c.getCount() != 0) {
+            c.moveToFirst();
+            actRespVal = c.getLong(0);
+        }
+        c.close();
+        return actRespVal;
     }
     private JsonArray ValidateJsonArray(JsonObject parent, String member) {
         if (parent == null || member == null)
