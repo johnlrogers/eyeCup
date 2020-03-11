@@ -14,8 +14,8 @@ import java.util.Date;
 
 public class Globals {
 
-//    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
-    public static final boolean APP_DEMO_MODE = true;
+    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
+//    public static final boolean APP_DEMO_MODE = true;
     public static final int APP_DEMO_MODE_MIN_OPEN = 5;
     public static final int APP_DEMO_MODE_MIN_WARN = 10;
     public static final int APP_DEMO_MODE_MIN_EXPIRE = 15;
@@ -23,8 +23,10 @@ public class Globals {
     public static final int APP_DFLT_DEVICE_ID = 1;
     public static final String APP_DFLT_DEVICE_APPID = "12345678";
 
-    public static final String URL_EVENT_UPLOAD =   "https://icupapi.lionridgedev.com/v1/diary/";
-    public static final String URL_PICTURE_UPLOAD = "https://icupapi.lionridgedev.com/v1/photo/";
+//    public static final String URL_EVENT_UPLOAD =   "https://icupapi.lionridgedev.com/v1/diary/";
+//    public static final String URL_PICTURE_UPLOAD = "https://icupapi.lionridgedev.com/v1/photo/";
+    public static final String URL_EVENT_UPLOAD =   "https://apieyecup.oraclinical.com/v1/diary/";
+    public static final String URL_PICTURE_UPLOAD = "https://apieyecup.oraclinical.com/v1/photo/";
 //    public static final String URL_EVENT_UPLOAD =   "https://icupapi.lionridgedev.com/v1/diary/basic/";
 //    public static final String URL_PICTURE_UPLOAD = "https://icupapi.lionridgedev.com/v1/diary/basic/";
 
@@ -46,12 +48,15 @@ public class Globals {
     public static final int ALWAYS_SVC_TIMER_DELAY = 1000;              //initial delay on starting loops first time
     public static final int ALWAYS_SVC_TIMER_PERIOD = 10000;            //loop status check every 10 seconds
     public static final int ALWAYS_SVC_THANKYOU_DLY_CNT = 3;            //show the thank you message for (loops * 10 = seconds)
-    public static final int ALWAYS_SVC_UPLOAD_DLY_CNT = 4;              //delay starting upload data after event ends (loops * 10 = seconds)
-//    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 60;            //period to try to upload non-uploaded data (loops * 10 = seconds)
-    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 15;            //period to try to upload non-uploaded data (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_UPLOAD_DLY_CNT = 5;              //delay starting upload data after event ends (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 60;            //period to try to upload non-uploaded data (loops * 10 = seconds)
+//    public static final int ALWAYS_SVC_CATCHUP_DLY_CNT = 15;            //period to try to upload non-uploaded data (loops * 10 = seconds)
     public static final int ALWAYS_SVC_UPLOAD_PIC_DLY_CNT = 5;          //delay between pics (multiple of 1000 milliseconds)
     public static final String MSG_IDLE = "Your next event is at ";
     public static final String MSG_THANK_YOU = "Thank you for participating.  ";
+
+    public static final int ALWAYS_SVC_WARN_PLAY_CNT = 3;               //period play the warning alarm (loops * 10 = seconds)
+    public static final int ALWAYS_SVC_WARN_DLY_CNT = 30;               //period play the warning again (loops * 10 = seconds)
 
     public static final int ALWAYS_SVC_STATE_CLOSED = 0;                //service state no change
     public static final int ALWAYS_SVC_STATE_POLL = 10;                 //service is polling for events

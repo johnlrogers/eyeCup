@@ -79,6 +79,8 @@ import static com.ora.android.eyecup.Globals.ALWAYS_SVC_TIMER_DELAY;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_TIMER_PERIOD;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_UPLOAD_DLY_CNT;
 import static com.ora.android.eyecup.Globals.ALWAYS_SVC_UPLOAD_PIC_DLY_CNT;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_WARN_DLY_CNT;
+import static com.ora.android.eyecup.Globals.ALWAYS_SVC_WARN_PLAY_CNT;
 import static com.ora.android.eyecup.Globals.APP_ASSET_DBNAME;
 import static com.ora.android.eyecup.Globals.APP_DATA_DBNAME;
 import static com.ora.android.eyecup.Globals.APP_DEMO_MODE;
@@ -132,7 +134,10 @@ public class AlwaysService extends Service implements AsyncResponse {
     private long mlBeginEvtUploadCnt = 0;                                   //Ctr when to start upload after complete event
     private long mlChkCatchupUploadCnt = 0;                                 //Ctr when to start upload after complete event
 
-    MediaPlayer mPlayer;                                                    //media player object
+    private long mlStopWarnCnt = 0;                                         //counter to stop playing the warning
+    private long mlStartWarnCnt = 0;                                        //counter to start playing the warning again
+    MediaPlayer mPlayWarn;                                                  //media player object for Warning alarm
+    MediaPlayer mPlayOpen;                                                  //media player object for Open notification
 
     private static Random random = new Random();
     private static int iSeed = random.nextInt(9999 - 1001 ) + 1001;  //random 1001 to 9998
@@ -495,6 +500,25 @@ public class AlwaysService extends Service implements AsyncResponse {
                     startActivity(intent);
                     break;
             }
+        }
+
+        if (mState == ALWAYS_SVC_STATE_EVT_WIN_WARN) {      //warning state?
+
+            String strLog = "Warning loop: Ctr:";
+            strLog = strLog + (mlCount) + " SS:" + mState + " ES:" + mEventState;
+            strLog = strLog + ": StartWarn:" + mlStartWarnCnt;
+            strLog = strLog + ": StopWarn:" + mlStopWarnCnt;
+
+            Log.d(TAG, strLog);         //Log State
+
+            if ((mlCount >= mlStartWarnCnt) && (mlStartWarnCnt > 0)) {  //time to start again?
+                playAlertSound(true);                               //start warning
+            }
+            if ((mlCount >= mlStopWarnCnt) && (mlStopWarnCnt > 0)) {    //time to stop?
+                stopPlaying();                                              //stop
+            }
+        } else {                                            //otherwise
+            stopPlaying();                                      //ensure not playing
         }
 
         if ((mState == ALWAYS_SVC_STATE_EVT_WIN_THANKYOU)           //Thank you state?, or
@@ -1410,9 +1434,17 @@ public class AlwaysService extends Service implements AsyncResponse {
     public void saveAdminChanges () {
         refreshParticipant();
         refreshDevice();
-        setServiceState(ALWAYS_SVC_STATE_POLL, false);
+//20200302
+        setServiceEventState(ALWAYS_SVC_EVENT_NONE);    //calls setServiceState(ALWAYS_SVC_STATE_POLL, true)
+//        setServiceState(ALWAYS_SVC_STATE_POLL, false);
 
     }
+//20200302
+    public void CancelAdminChanges () {
+        setServiceEventState(ALWAYS_SVC_EVENT_NONE);    ////calls setServiceState(ALWAYS_SVC_STATE_POLL, true)
+//        setServiceState(ALWAYS_SVC_STATE_POLL, false);
+    }
+
     public void refreshParticipant() {
         GetPatFromDb();                         //get participant form database
     }
@@ -1946,12 +1978,19 @@ public class AlwaysService extends Service implements AsyncResponse {
     }
 
     public void stopPlaying() {
-        if (mPlayer != null) {
-            mPlayer.stop();
-            mPlayer.release();
-            mPlayer = null;
+        if (mPlayWarn != null) {
+            mPlayWarn.stop();
+            mPlayWarn.release();
+            mPlayWarn = null;
+            mlStopWarnCnt = 0;
         }
+//        if (mPlayOpen != null) {
+//            mPlayOpen.stop();
+//            mPlayOpen.release();
+//            mPlayOpen = null;
+//        }
     }
+
     public void playAlertSound(boolean bWarn) {
 //        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 //        MediaPlayer thePlayer = MediaPlayer.create(getApplicationContext(), RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
@@ -1976,7 +2015,10 @@ public class AlwaysService extends Service implements AsyncResponse {
                     alarmsCursor.close();
                 }
                 if (uriWarn != null) {
-                    mPlayer = MediaPlayer.create(getApplicationContext(), uriWarn);
+                    mPlayWarn = MediaPlayer.create(getApplicationContext(), uriWarn);
+                    mPlayWarn.start();
+                    mlStopWarnCnt = mlCount + ALWAYS_SVC_WARN_PLAY_CNT;     //set counter to stop playing
+                    mlStartWarnCnt = mlCount + ALWAYS_SVC_WARN_DLY_CNT;     //set counter for next interval of playing
                 }
             } else {
                 RingtoneManager notifyMgr = new RingtoneManager(this);
@@ -1988,14 +2030,12 @@ public class AlwaysService extends Service implements AsyncResponse {
                     while(!notifyCursor.isAfterLast() && notifyCursor.moveToNext()) {
                         int currentPosition = notifyCursor.getPosition();
                         notifications[currentPosition] = notifyMgr.getRingtoneUri(currentPosition);
-//                Log.i(notifications[currentPosition].);
                     }
                     notifyCursor.close();
                 }
-//            Uri uri = notifyMgr.getRingtoneUri(12);
-                mPlayer = MediaPlayer.create(getApplicationContext(), RingtoneManager.getActualDefaultRingtoneUri(getApplicationContext(), TYPE_NOTIFICATION));
+                mPlayOpen = MediaPlayer.create(getApplicationContext(), RingtoneManager.getActualDefaultRingtoneUri(getApplicationContext(), TYPE_NOTIFICATION));
+                mPlayOpen.start();
             }
-            mPlayer.start();
 
         } catch (Exception e) {
             Log.e("Login:playAlertSound", e.toString());

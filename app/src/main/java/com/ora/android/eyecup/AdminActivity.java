@@ -172,7 +172,7 @@ public class AdminActivity extends AppCompatActivity {
         if (mParticipant != null
             && PatientIsValid()
             && PatientPWIsValid()) {
-            if ((mParticipant.getPatNumber() != Integer.parseInt(tbxPatNumber.getText().toString()))
+            if (   (mParticipant.getPatNumber() != Integer.parseInt(tbxPatNumber.getText().toString()))
                 || (mParticipant.getPatYearId() != Integer.parseInt(tbxSPNYearId.getText().toString()))
                 || (mParticipant.getPatDeptId() != Integer.parseInt(tbxSPNDeptId.getText().toString()))
                 || (mParticipant.getPatStudyId() != Integer.parseInt(tbxSPNStudyId.getText().toString()))
@@ -499,6 +499,16 @@ public class AdminActivity extends AppCompatActivity {
     public void onBackPressed() {
         global.Back();
         super.onBackPressed();
+//20200302
+        if (isBound) {
+            alwaysService.CancelAdminChanges();       //cancel
+            try {
+                finish();
+            } catch (Exception e) {
+                Log.e("MainActivity:onCreate:Finish", e.toString());
+                //todo handle
+            }
+        }
     }
     @Override
     protected void onStart() {
