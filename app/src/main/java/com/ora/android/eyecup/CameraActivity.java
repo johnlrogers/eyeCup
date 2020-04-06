@@ -23,16 +23,14 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
-import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-//import android.support.v7.app.AppCompatActivity;
-
 public class CameraActivity extends AppCompatActivity {
-
-    Camera2BasicFragment fmCamera;
-    private TextView txtInstruction;
+//20200404 never used
+//    Camera2BasicFragment fmCamera;
+//    private TextView txtInstruction;
+//20200404 end
     private boolean isBound = false;
     private AlwaysService alwaysService;
     private int miCurActId = 0;
@@ -45,6 +43,20 @@ public class CameraActivity extends AppCompatActivity {
     }
     public String getPictureCode() { return mstrActPictureCode; }
     public String getPatNumber() { return mstrPatNumber; }
+//20200405
+    private CameraSettings mCamSet;
+
+    public int getPicDELAY_SECONDS(){ return mCamSet.getPicDELAY_SECONDS(); }
+    public float getPicFOCUS_CM(){ return mCamSet.getPicFOCUS_CM(); }
+    public float getPicAPERTURE(){ return mCamSet.getPicAPERTURE(); }
+    public int getPicSHUTTER_FACTOR(){ return mCamSet.getPicSHUTTER_FACTOR(); }
+    public int getPicSENS_SENSITIVITY(){ return mCamSet.getPicSENS_SENSITIVITY(); }
+    public int getPicFRAME_DURATION_MS(){ return mCamSet.getPicFRAME_DURATION_MS(); }
+    public int getPicCROP_W_FACTOR(){ return mCamSet.getPicCROP_W_FACTOR(); }
+    public int getPicCROP_H_FACTOR(){ return mCamSet.getPicCROP_H_FACTOR(); }
+    public int getPicZOOM_DIGITAL(){ return mCamSet.getPicZOOM_DIGITAL(); }
+    public int getPicZOOM_OPTICAL(){ return mCamSet.getPicZOOM_OPTICAL(); }
+
     public int getCurActId() {
         return miCurActId;
     }
@@ -55,35 +67,30 @@ public class CameraActivity extends AppCompatActivity {
         return bRet;
     }
 
-//    public void setPictureFileName(String strFile) {
+//20200404 not called
+//    public void MyFinish() {
 //
-//        mstrActTxt = strFile;
+//        try {
+//            Log.d("CameraActivity:MyFinish", "finish()");
+//            finish();
+//            int iNextActId;
+//            iNextActId = alwaysService.setNextActivityIdx();    //next id
 //
+//            Log.d("CameraActivity:MyFinish", "alwaysService.GotoEvtAct(iNextActId)");
+//            alwaysService.GotoEvtAct(iNextActId);
+//
+//        } catch (IndexOutOfBoundsException e) {
+//            Log.e("CameraActivity:MyFinish:IdxOoBEx", e.toString());
+//        } catch(Exception e) {
+//            Log.e("CameraActivity:MyFinish:Ex", e.toString());
+//        }
 //    }
-
-    public void MyFinish() {
-
-        try {
-            Log.d("CameraActivity:MyFinish", "finish()");
-            finish();
-            int iNextActId;
-            iNextActId = alwaysService.setNextActivityIdx();    //next id
-
-            Log.d("CameraActivity:MyFinish", "alwaysService.GotoEvtAct(iNextActId)");
-            alwaysService.GotoEvtAct(iNextActId);
-
-        } catch (IndexOutOfBoundsException e) {
-            Log.e("CameraActivity:MyFinish:IdxOoBEx", e.toString());
-        } catch(Exception e) {
-            Log.e("CameraActivity:MyFinish:Ex", e.toString());
-        }
-    }
 
     public void GotoNextPicture(boolean bAcceptedPicture) {
 
         try {
             int iNextActId;
-//            int iNextActTypeID;
+
             if (bAcceptedPicture) {
                 iNextActId = alwaysService.setNextActivityIdx();    //next id
             } else {
@@ -94,6 +101,7 @@ public class CameraActivity extends AppCompatActivity {
 
             Log.d("CameraActivity:GotoNextPicture", "alwaysService.GotoEvtAct(iNextActId)");
             alwaysService.GotoEvtAct(iNextActId);
+
         } catch(Exception e) {
             Log.e("CameraActivity:MyFinish", e.toString());
         }
@@ -116,14 +124,6 @@ public class CameraActivity extends AppCompatActivity {
         GotoNextPicture(false);                                               //Next activity
     }
 
-//    public void updateFragmentControls() {
-//        //todo is fragment_container_view_tag what I want?
-//        Camera2BasicFragment frag = (Camera2BasicFragment)getSupportFragmentManager().
-//                findFragmentById(R.id.container);
-//
-//        frag.setActvityData(mstrActTxt, mstrActPictureCode);
-//    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -131,11 +131,7 @@ public class CameraActivity extends AppCompatActivity {
         setContentView(R.layout.activity_camera);
 
         Log.d("CameraActivity:", "OnCreate");
-//        if (null == savedInstanceState) {
-//            getSupportFragmentManager().beginTransaction()
-//                    .replace(R.id.container, Camera2BasicFragment.newInstance(), "fmCamera")
-//                    .commit();
-//        }
+
         if (null != savedInstanceState) {
             getSupportFragmentManager().beginTransaction()
                     .remove(getSupportFragmentManager().findFragmentById(R.id.container))
@@ -151,10 +147,8 @@ public class CameraActivity extends AppCompatActivity {
         mstrPatNumber =  getIntent().getStringExtra("PatNum");
         mstrActPictureCode =  getIntent().getStringExtra("ActPicCode");
 
-//        if (!(alwaysService == null)) {
-//            mstrActPictureCode = alwaysService.getActivityPictureCodeIdx(miCurActId);
-//            updateFragmentControls();
-//        }
+
+        mCamSet = new CameraSettings(getApplicationContext());
     }
 
     @Override
@@ -165,11 +159,6 @@ public class CameraActivity extends AppCompatActivity {
         mstrActTxt = getIntent().getStringExtra("ActTxt");
         mstrPatNumber =  getIntent().getStringExtra("PatNum");
         mstrActPictureCode =  getIntent().getStringExtra("ActPicCode");
-
-//        if (!(alwaysService == null)) {
-//            mstrActPictureCode = alwaysService.getActivityPictureCodeIdx(miCurActId);
-//            updateFragmentControls();
-//        }
     }
 
     @Override

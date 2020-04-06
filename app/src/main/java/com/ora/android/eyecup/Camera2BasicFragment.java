@@ -57,6 +57,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -93,6 +94,8 @@ import static java.lang.Thread.sleep;
 public class Camera2BasicFragment extends Fragment
         implements View.OnClickListener, ActivityCompat.OnRequestPermissionsResultCallback {
 
+    private static final boolean bManualCamera = true;
+
     private TextView txtInstruction;
     private String mstrPicCode;
 
@@ -100,18 +103,26 @@ public class Camera2BasicFragment extends Fragment
     private boolean bReviewImageSet = false;
 
     private ImageView mImageView;
-    private static final int PIC_DELAY_SECONDS = 10;
 
-    private static final boolean bManualCamera = true;
+//20200404
+//    private static final int PIC_DELAY_SECONDS = 10;
+//    private static final float PIC_FOCUS_CM = 11.5f;
+//    private static final long SHUTTER_FACTOR = 1500;
+//    private static final int SENS_SENSITIVITY = 100;
+//    private static final long FRAME_DURATION = 25000000;
+    private int PIC_DELAY_SECONDS = 10;
+    private float PIC_FOCUS_CM = 11.5f;
+    private long PIC_SHUTTER_FACTOR = 1500;
+    private int PIC_SENS_SENSITIVITY = 100;
+    private long PIC_FRAME_DURATION = 25000000;
+    private long PIC_FRAME_DURATION_MS = 25000;
+    private float PIC_APERTURE = 2.4f;
+    private int PIC_CROP_W_FACTOR = 10;
+    private int PIC_CROP_H_FACTOR = 20;
+    private int PIC_ZOOM_DIGITAL = 1;
+    private int PIC_ZOOM_OPTICAL = 1;
+//20200404 end
 
-    private static final float PIC_FOCUS_CM = 11.5f;
-    private static final long SHUTTER_FACTOR = 1500;
-//    private static final long SHUTTER_FACTOR = 1750;
-//    private static final int SENS_SENSITIVITY = 4000;
-    private static final int SENS_SENSITIVITY = 100;
-//    private static final long FRAME_DURATION = 33333333;
-    private static final long FRAME_DURATION = 25000000;
-//20200110 end
     /**
      * Conversion from screen rotation to JPEG orientation.
      */
@@ -335,13 +346,9 @@ public class Camera2BasicFragment extends Fragment
             String strFile = activity.getPatNumber();
             strFile = strFile + "_" + mstrPicCode;
             strFile = strFile + "_" + glob.GetDateStr(DT_FMT_FULL_FILENAME,dt);
-            //toto full picture file name
             strFile = strFile + ".jpg";
 
-            //todo Warning:(330, 52) Method invocation 'getExternalFilesDir' may produce 'NullPointerException'
             try {
-//                File fNewFile = new File(activity.getExternalFilesDir(null), strFile);
-//                File fNewFile = new File(activity.getExternalFilesDir(activity.getPatNumber()), strFile);
                 File fNewFile = new File(activity.getExternalFilesDir(strDir), strFile);
                 mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), fNewFile));
                 mFile = fNewFile;
@@ -419,22 +426,32 @@ public class Camera2BasicFragment extends Fragment
                                                 BitmapFactory.Options o2 = new BitmapFactory.Options(); // Decode with inSampleSize
                                                 o2.inSampleSize = scale;
                                                 Bitmap bitmap = BitmapFactory.decodeStream(new FileInputStream(mFile), null, o2);
-
-                                                //crop (match image rotation below)
-                                                int iCropW = 10;
-                                                int iCropH = 20;
-                                                if (bitmap.getWidth() > bitmap.getHeight()) {
-//                                                    iCropW = 2 * iCropH;
-                                                    iCropH = 2 * iCropW;
-                                                } else {
+//20200404
+//                                                //crop (match image rotation below)
+//                                                int iCropW = 10;
+//                                                int iCropH = 20;
+//                                                if (bitmap.getWidth() > bitmap.getHeight()) {
 //                                                    iCropH = 2 * iCropW;
-                                                    iCropW = 2 * iCropH;
+//                                                } else {
+//                                                    iCropW = 2 * iCropH;
+//                                                }
+//                                                bitmap=Bitmap.createBitmap(bitmap
+//                                                        , (int)(bitmap.getWidth()/iCropW)
+//                                                        , (int)(bitmap.getHeight()/iCropH)
+//                                                        , bitmap.getWidth() - (2 * (int)(bitmap.getWidth()/iCropW))
+//                                                        , bitmap.getHeight() - (2 * (int)(bitmap.getHeight()/iCropH)));
+                                                //crop (match image rotation below)
+                                                if (bitmap.getWidth() > bitmap.getHeight()) {
+                                                    PIC_CROP_H_FACTOR = 2 * PIC_CROP_W_FACTOR;
+                                                } else {
+                                                    PIC_CROP_W_FACTOR = 2 * PIC_CROP_H_FACTOR;
                                                 }
                                                 bitmap=Bitmap.createBitmap(bitmap
-                                                        , (int)(bitmap.getWidth()/iCropW)
-                                                        , (int)(bitmap.getHeight()/iCropH)
-                                                        , bitmap.getWidth() - (2 * (int)(bitmap.getWidth()/iCropW))
-                                                        , bitmap.getHeight() - (2 * (int)(bitmap.getHeight()/iCropH)));
+                                                        , (bitmap.getWidth()/PIC_CROP_W_FACTOR)
+                                                        , (bitmap.getHeight()/PIC_CROP_H_FACTOR)
+                                                        , bitmap.getWidth() - (2 * (bitmap.getWidth()/PIC_CROP_W_FACTOR))
+                                                        , bitmap.getHeight() - (2 * (bitmap.getHeight()/PIC_CROP_H_FACTOR)));
+//20200404 end
 
 //                                                mImageView.setRotation(90);
                                                 mImageView.setScaleType(CENTER_CROP);
@@ -631,8 +648,15 @@ public class Camera2BasicFragment extends Fragment
 
     @Override
     public void onViewCreated(final View view, Bundle savedInstanceState) {
-
+        String strBtn;
         CameraActivity activity = (CameraActivity) getActivity();
+
+        PIC_DELAY_SECONDS = activity.getPicDELAY_SECONDS();
+        strBtn = "Press to take picture. Picture will be taken after ";
+        strBtn = strBtn + PIC_DELAY_SECONDS;
+        strBtn = strBtn + " seconds.";
+        Button btPic = view.findViewById(R.id.btnPicture);
+        btPic.setText(strBtn);
 
         view.findViewById(R.id.btnPicture).setOnClickListener(this);
         view.findViewById(R.id.btn_accept).setOnClickListener(this);
@@ -651,18 +675,7 @@ public class Camera2BasicFragment extends Fragment
 
         mTextureView = view.findViewById(R.id.texture);
         mImageView = view.findViewById(R.id.imageView);
-        //20200202 comment clickable and listener
-//        mImageView.setClickable(true);
-//        //mImageView.bringToFront();
-//        mImageView.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                mImageView.setRotation(mImageView.getRotation() + 90);  //rotate 90 degrees
-//            }
-//        });
 
-//20200111
-//20200111 end
         bWaitReview = false;
         setControls();     //not reviewing
     }
@@ -865,7 +878,22 @@ public class Camera2BasicFragment extends Fragment
         }
         setUpCameraOutputs(width, height);
         configureTransform(width, height);
+
         Activity activity = getActivity();
+ //20200405
+        CameraActivity act = (CameraActivity) getActivity();
+//        PIC_DELAY_SECONDS = act.getPicDELAY_SECONDS();
+        PIC_FOCUS_CM = act.getPicFOCUS_CM();
+        PIC_APERTURE = act.getPicAPERTURE();
+        PIC_SHUTTER_FACTOR = act.getPicSHUTTER_FACTOR();
+        PIC_SENS_SENSITIVITY = act.getPicSENS_SENSITIVITY();
+        PIC_FRAME_DURATION_MS = act.getPicFRAME_DURATION_MS();
+        PIC_FRAME_DURATION = 1000 * PIC_FRAME_DURATION_MS;
+        PIC_CROP_W_FACTOR = act.getPicCROP_W_FACTOR();
+        PIC_CROP_H_FACTOR = act.getPicCROP_H_FACTOR();
+        PIC_ZOOM_DIGITAL = act.getPicZOOM_DIGITAL();
+        PIC_ZOOM_OPTICAL = act.getPicZOOM_OPTICAL();
+
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
@@ -1052,21 +1080,7 @@ public class Camera2BasicFragment extends Fragment
     /**
      * Initiate a still image capture.
      */
-//    private void takePicture() {
     private void takePicture() {
-        // add sleep to try to avoid java.lang.NullPointerException:
-        //  Attempt to invoke virtual method 'android.hardware.camera2.CaptureRequest
-        //  android.hardware.camera2.impl.CameraDeviceImpl$CaptureCallbackHolder.getRequest(int)'
-        //  on a null object reference
-        // https://stackoverflow.com/questions/37509237/taking-images-camera2api/40904906#40904906
-//        try {
-//            sleep(1000);
-//        } catch (InterruptedException e) {
-//            Log.e("C2BF:takePicture:sleep:IntExEx", e.toString());
-//            //todo handle
-//            e.printStackTrace();
-//        }
-
         lockFocus();
     }
 
@@ -1082,6 +1096,7 @@ public class Camera2BasicFragment extends Fragment
 
             Log.d("C2BF:lockFocus", "mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler)");
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
+
         } catch (CameraAccessException e) {
             Log.e("C2BF:lockFocus:CAEx", e.toString());
             //todo handle
@@ -1128,21 +1143,23 @@ public class Camera2BasicFragment extends Fragment
             try {
                 if (bManualCamera) {
                     Log.d("C2BF:Manual", "captureBuilder.get(CaptureRequest.CONTROL_AWB_MODE)");
-                    int iWB = captureBuilder.get(CaptureRequest.CONTROL_AWB_MODE);                          //get default white balance mode
+                    int iWB = captureBuilder.get(CaptureRequest.CONTROL_AWB_MODE);                              //get default white balance mode
 
-                    captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);       //auto-everything off (Exposure, White Balance, Focus)
-                    captureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, iWB);                                //set white balance back to default
-                    captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);    //autofocus off
+                    captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);           //auto-everything off (Exposure, White Balance, Focus)
+                    captureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, iWB);                                   //set white balance back to default
+
+                    captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);     //auto-focus off
+                    captureBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_SINGLE);            //flash single
+
                     captureBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 100f / PIC_FOCUS_CM);                //100/cm
-
-                    captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-
-                    captureBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_SINGLE);
-
-                    captureBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, (long) 1000000000 / SHUTTER_FACTOR);   //nanoseconds
-
-                    captureBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, SENS_SENSITIVITY);
-                    captureBuilder.set(CaptureRequest.SENSOR_FRAME_DURATION, FRAME_DURATION);
+//20200404
+//                    captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+                    captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);     //OFF to set Aperture, Exposure, Sens, FD
+                    captureBuilder.set(CaptureRequest.LENS_APERTURE, PIC_APERTURE);
+//20200404 end
+                    captureBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, (long) 1000000000 / PIC_SHUTTER_FACTOR);   //nanoseconds
+                    captureBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, PIC_SENS_SENSITIVITY);
+                    captureBuilder.set(CaptureRequest.SENSOR_FRAME_DURATION, PIC_FRAME_DURATION);
 
                 } else {
                     // Use the same AE and AF modes as the preview.
@@ -1154,8 +1171,6 @@ public class Camera2BasicFragment extends Fragment
                 Log.d("C2BF", "captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ...)");
             int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation));
-//            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, 2);
-//                captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, 90);
 
             } catch (NullPointerException e) {
                 Log.e("C2BF:captureStillPicture:NPEx", e.toString());
@@ -1173,97 +1188,37 @@ public class Camera2BasicFragment extends Fragment
                 Log.e("C2BF:captureStillPicture:jpegSizes:NPEx", e.toString());
                 //todo handle
             }
+//20200404 width, height are assigned but never used
+//            int width = 640;
+//            int height = 480;
+//            if (jpegSizes != null && 0 < jpegSizes.length) {
+//                width = jpegSizes[0].getWidth();
+//                height = jpegSizes[0].getHeight();
+//            }
+//20200404 end
 
-            int width = 640;
-            int height = 480;
-            if (jpegSizes != null && 0 < jpegSizes.length) {
-                width = jpegSizes[0].getWidth();
-                height = jpegSizes[0].getHeight();
-            }
-//20200110 comment above?
-//20200202
-//            ImageReader reader = ImageReader.newInstance(width, height, ImageFormat.JPEG, 1);
-//            //todo Warning contents of collection 'outputSurfaces' are updated bt never queried
-//            List<Surface> outputSurfaces = new ArrayList<>(2);
-//            outputSurfaces.add(reader.getSurface());
-//            outputSurfaces.add(new Surface(mTextureView.getSurfaceTexture()));
             //todo Warning contents of collection 'outputSurfaces' are updated bt never queried
             List<Surface> outputSurfaces = new ArrayList<>(2);
             outputSurfaces.add(mImageReader.getSurface());
             outputSurfaces.add(new Surface(mTextureView.getSurfaceTexture()));
 
-            final File tmpFile = new File(getActivity().getExternalFilesDir(null), "temp.jpg");
-
-//            ImageReader.OnImageAvailableListener readerListener = new ImageReader.OnImageAvailableListener() {
-//                @Override
-//                public void onImageAvailable(ImageReader reader) {
-//                    Image image = null;
-//                    try {
-//                        Log.d("C2BF:ImageReader.OnImageAvailableListener", "onImageAvailable");
-//                        image = reader.acquireLatestImage();
-//                        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-//
-//                        //https://stackoverflow.com/questions/28003186/capture-picture-without-preview-using-camera2-api
-////                        byte[] bytes = new byte[buffer.capacity()];
-////                        buffer.get(bytes);
-////                        save(bytes);
-//                        byte[] bytes = new byte[buffer.remaining()];
-//                        buffer.get(bytes);
-//                        save(bytes, tmpFile);
-//
-//                    } catch (FileNotFoundException e) {
-//                        Log.e("C2BF:onImageAvailable:FNFEx", e.toString());
-//                        //todo handle
-//                        e.printStackTrace();
-//                    } catch (IOException e) {
-//                        Log.e("C2BF:onImageAvailable:IOEx", e.toString());
-//                        //todo handle
-//                        //todo Warning:(1110, 23) 'catch' branch identical to 'FileNotFoundException' branch
-//                        e.printStackTrace();
-//                    } finally {
-//                        if (image != null) {
-//                            image.close();
-//                        }
-//                    }
-//                }
-
-//                private void save(byte[] bytes) throws IOException {
-//                private void save(byte[] bytes, File fFile) throws IOException {
-//                    OutputStream output = null;
-//                    try {
-////                        output = new FileOutputStream(file);
-//                        output = new FileOutputStream(fFile);
-//                        output.write(bytes);
-//                    } finally {
-//                        if (null != output) {
-//                            output.close();
-//                        }
-//                    }
-//                }
-//            };
-//            reader.setOnImageAvailableListener(readerListener, mBackgroundHandler);
             mImageReader.setOnImageAvailableListener(mOnImageAvailableListener,mBackgroundHandler);
 
-//20200108 end
             CameraCaptureSession.CaptureCallback CaptureCallback = new CameraCaptureSession.CaptureCallback() {
 
                 @Override
                 public void onCaptureCompleted(@NonNull CameraCaptureSession session,
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
-//20200110
-//20200113
+
                     Log.d(TAG, "request-before: " + request.get(CaptureRequest.SENSOR_SENSITIVITY));
                     Log.d(TAG, "result-before: " + result.get(CaptureResult.SENSOR_SENSITIVITY));
-//20200113 end
+
                     super.onCaptureCompleted(session, request, result);
-//20200110 end
-//20200113
+
                     Log.d(TAG, "request-after: " + request.get(CaptureRequest.SENSOR_SENSITIVITY));
                     Log.d(TAG, "result-after: " + result.get(CaptureResult.SENSOR_SENSITIVITY));
-//20200113 end
-//20200219 comment Toast
-//                    showToast("Saved: " + mFile);
+
                     Log.i(TAG, mFile.toString());
                     unlockFocus();
                 }
@@ -1374,7 +1329,7 @@ public class Camera2BasicFragment extends Fragment
                     CameraActivity activity = (CameraActivity) getActivity();
                     activity.AcceptPicture(mFile.getName());
                     bWaitReview = false;
-//                    setControls();     //not reviewing
+
                 } catch (NullPointerException e) {
                     Log.e("C2BF:onClick:brnAccept:NPEx", e.toString());
                     //todo handle
@@ -1386,18 +1341,13 @@ public class Camera2BasicFragment extends Fragment
                     CameraActivity activity = (CameraActivity) getActivity();
                     activity.RejectPicture();
                     bWaitReview = false;
-//                    setControls();     //not reviewing
+
                 } catch (NullPointerException e) {
                     Log.e("C2BF:onClick:btnReject:NPEx", e.toString());
                     //todo handle
                 }
                 break;
             }
-//            case R.id.imageView: {
-//
-//                mImageView.setRotation(mImageView.getRotation() + 90);  //rotate 90 degrees
-//                break;
-//            }
         }
     }
 
@@ -1442,9 +1392,6 @@ public class Camera2BasicFragment extends Fragment
                 e.printStackTrace();
             } finally {
                 mImage.close();
-//20200110
-//                loadImageFromStorage(mFile);
-//20200110 end
                 if (null != output) {
                     try {
                         output.close();

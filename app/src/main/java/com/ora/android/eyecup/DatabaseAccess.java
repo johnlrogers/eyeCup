@@ -17,6 +17,7 @@ import com.ora.android.eyecup.json.PatEventPicture;
 import com.ora.android.eyecup.json.PatEventResponse;
 import com.ora.android.eyecup.json.ProtocolRevEvent;
 import com.ora.android.eyecup.json.ProtocolRevision;
+import com.ora.android.eyecup.oradb.TAppSetting;
 import com.ora.android.eyecup.oradb.TDevice;
 import com.ora.android.eyecup.oradb.TParticipant;
 import com.ora.android.eyecup.oradb.TParticipantEvent;
@@ -177,6 +178,46 @@ public class DatabaseAccess {
         }
         catch (Exception e) {
             Log.e("DA:SetParticipantInfo:Ex", e.toString());
+            //todo handle
+        }
+        return success;
+    }
+
+    //20200405
+    /* Update AppSetting */
+    public boolean SetAppSettingValue(TAppSetting appSet) { //returns "true" if successful
+        boolean success = false;
+        String sqlCmd = "";
+
+        switch (appSet.getAppSetName()) {
+            case "PIC_SHUTTER_FACTOR":
+            case "PIC_SENS_SENSITIVITY":
+            case "PIC_FRAME_DURATION_MS":
+            case "PIC_CROP_W_FACTOR":
+            case "PIC_CROP_H_FACTOR":
+            case "PIC_ZOOM_DIGITAL":
+            case "PIC_ZOOM_OPTICAL":
+            case "PIC_DELAY_SECONDS":
+                sqlCmd = "UPDATE tAppSettings SET AppSetInt = " + appSet.getAppSetInt() ;
+                break;
+            case "PIC_FOCUS_CM":
+            case "PIC_APERTURE":
+                sqlCmd = "UPDATE tAppSettings SET AppSetReal = " + appSet.getAppSetReal() ;
+                break;
+            default:
+                break;
+        }
+        if (sqlCmd.length() == 0) {     //Nothing to do?
+            return success;                 //bail
+        }                               //Otherwise ...
+
+        sqlCmd = sqlCmd + " WHERE AppsetName = '" + appSet.getAppSetName()+"';";
+        try {
+            db.execSQL(sqlCmd);
+            success = true;
+        }
+        catch (Exception e) {
+            Log.e("DA:SetAppSettingValue:Ex", e.toString());
             //todo handle
         }
         return success;

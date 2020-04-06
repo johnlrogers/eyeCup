@@ -37,16 +37,31 @@
     <string name="admin_study_prompt">Study Num</string>
     <string name="admin_patient_id_prompt">Participant Num</string>
     <string name="admin_password_prompt">Password</string>
-    <string name="admin_password_confirm_prompt">Confirm Password</string>
+    <string name="admin_password_confirm_prompt">Confirm</string>
     <string name="admin_new_part">New Participant</string>
     <string name="admin_create_part">Create Participant</string>
     <string name="admin_btn_save_pat">Save Participant</string>
+    <string name="admin_btn_cam_set">Camera Settings</string>
     <string name="admin_btn_save_pat_pw">Save Participant</string>
 
     <string name="admin_dvc_prompt">Device ID</string>
     <string name="admin_btn_save_dvc">Save Device</string>
 
+    <string name="admin_camera_title">Camera Settings</string>
+    <string name="admin_camera_delay_prompt">Delay (s)</string>
+    <string name="admin_camera_focus_prompt">Focus (cm)</string>
+    <string name="admin_camera_aperture_prompt">Aperture</string>
+    <string name="admin_camera_shutter_prompt">Shutter Factor</string>
+    <string name="admin_camera_sens_prompt">Sensitivity</string>
+    <string name="admin_camera_frame_prompt">Frame Dur. (ms)</string>
+    <string name="admin_camera_cropW_prompt">Crop Fact. (W)</string>
+    <string name="admin_camera_cropH_prompt">Crop Fact. (H)</string>
+    <string name="admin_camera_zoomD_prompt">Digital Zoom</string>
+    <string name="admin_camera_zoomO_prompt">Optical Zoom</string>
+    <string name="admin_btn_save_cam">Save Settings</string>
+
     <string name="main_title">Welcome</string>
     <string name="main_inst">Welcome</string>
+    <string name="title_activity_admin_camera">AdminCameraActivity</string>
 
 </resources>

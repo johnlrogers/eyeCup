@@ -169,6 +169,9 @@ public class AlwaysService extends Service implements AsyncResponse {
 
     public long mlCurPatEvtId = -1;                                         //Current ParticipantEvent Id
 
+//20200405
+    public CameraSettings mCamSet;                                          //Camera settings
+
     private TDevice mCurDevice = new TDevice();                                         //table class: Device
     private TParticipant mCurPat = new TParticipant();                                  //table class: Participant
     private TParticipantEvent mCurPatEvt = new TParticipantEvent();                     //table class: ParticipantEvent
@@ -202,9 +205,16 @@ public class AlwaysService extends Service implements AsyncResponse {
         GetDbVersionFromDb();                   //get database version form database
         GetDeviceFromDb();                      //get participant form database
         GetProtocolFromDb();                    //get initial default protocol from OraDb.db
+//20200405
+        GetCameraSettingsFromDb();              //pop camera settings
 
         restartForeground();                    //start service if not running
         mCurrentService = this;
+    }
+
+    //20200405
+    public void GetCameraSettingsFromDb() {
+        mCamSet = new CameraSettings(getApplicationContext());  //pop camera settings
     }
 
     @Override

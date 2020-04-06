@@ -10,6 +10,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -104,6 +105,13 @@ public class AdminActivity extends AppCompatActivity {
         }
 //20200211 end
 
+        final Button button = findViewById(R.id.btnCamSettings);
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                OpenCameraSettings();
+            }
+        });
+
         tbxSPNYearId.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -166,6 +174,14 @@ public class AdminActivity extends AppCompatActivity {
         });
     }
 
+    public void OpenCameraSettings() {
+        Intent intent;
+
+        intent = new Intent(this, AdminCameraActivity.class);     //Admin CameraActivity
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+    }
+
     public void OnClick(View view) {
         boolean success = false;
 
@@ -202,7 +218,7 @@ public class AdminActivity extends AppCompatActivity {
                 finish();
 
             } catch (Exception e) {
-                Log.e("MainActivity:onCreate:Finish", e.toString());
+                Log.e("AdminActivity:onClick:Finish", e.toString());
                 //todo handle
             }
         }

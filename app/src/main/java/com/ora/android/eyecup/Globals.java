@@ -14,11 +14,11 @@ import java.util.Date;
 
 public class Globals {
 
-    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
-//    public static final boolean APP_DEMO_MODE = true;
+//    public static final boolean APP_DEMO_MODE = false;   //control schedule or on-demand
+    public static final boolean APP_DEMO_MODE = true;
     public static final int APP_DEMO_MODE_MIN_OPEN = 5;
-    public static final int APP_DEMO_MODE_MIN_WARN = 10;
-    public static final int APP_DEMO_MODE_MIN_EXPIRE = 15;
+    public static final int APP_DEMO_MODE_MIN_WARN = 15;
+    public static final int APP_DEMO_MODE_MIN_EXPIRE = 20;
 
     public static final int APP_DFLT_DEVICE_ID = 1;
     public static final String APP_DFLT_DEVICE_APPID = "12345678";
