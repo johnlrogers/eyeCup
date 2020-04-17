@@ -56,6 +56,7 @@ public class CameraActivity extends AppCompatActivity {
     public int getPicCROP_H_FACTOR(){ return mCamSet.getPicCROP_H_FACTOR(); }
     public int getPicZOOM_DIGITAL(){ return mCamSet.getPicZOOM_DIGITAL(); }
     public int getPicZOOM_OPTICAL(){ return mCamSet.getPicZOOM_OPTICAL(); }
+    public int getPicWHITE_BALANCE_TEMP(){ return mCamSet.getPicWHITE_BALANCE_TEMP(); }
 
     public int getCurActId() {
         return miCurActId;

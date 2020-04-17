@@ -198,6 +198,7 @@ public class DatabaseAccess {
             case "PIC_ZOOM_DIGITAL":
             case "PIC_ZOOM_OPTICAL":
             case "PIC_DELAY_SECONDS":
+            case "PIC_WHITE_BALANCE_TEMP":
                 sqlCmd = "UPDATE tAppSettings SET AppSetInt = " + appSet.getAppSetInt() ;
                 break;
             case "PIC_FOCUS_CM":

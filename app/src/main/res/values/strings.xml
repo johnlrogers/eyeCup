@@ -58,6 +58,7 @@
     <string name="admin_camera_cropH_prompt">Crop Fact. (H)</string>
     <string name="admin_camera_zoomD_prompt">Digital Zoom</string>
     <string name="admin_camera_zoomO_prompt">Optical Zoom</string>
+    <string name="admin_camera_wbTemp_prompt">White Balance Temp</string>
     <string name="admin_btn_save_cam">Save Settings</string>
 
     <string name="main_title">Welcome</string>

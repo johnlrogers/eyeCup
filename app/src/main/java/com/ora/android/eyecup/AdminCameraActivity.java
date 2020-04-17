@@ -33,6 +33,7 @@ public class AdminCameraActivity extends AppCompatActivity {
     private EditText tbxPicCropH;
     private EditText tbxPicZoomDigital;
     private EditText tbxPicZoomOptical;
+    private EditText tbxPicWBTemp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,6 +52,7 @@ public class AdminCameraActivity extends AppCompatActivity {
         tbxPicCropH = global.GetView(R.id.tbxPicCropH);
         tbxPicZoomDigital = global.GetView(R.id.tbxPicZoomDigital);
         tbxPicZoomOptical = global.GetView(R.id.tbxPicZoomOptical);
+        tbxPicWBTemp = global.GetView(R.id.tbxPicWBTemp);
 
         tbxPicDelay.setText(String.valueOf(mCamSet.getPicDELAY_SECONDS()));
         tbxPicFocus.setText(String.valueOf(mCamSet.getPicFOCUS_CM()));
@@ -62,6 +64,7 @@ public class AdminCameraActivity extends AppCompatActivity {
         tbxPicCropH.setText(String.valueOf(mCamSet.getPicCROP_H_FACTOR()));
         tbxPicZoomDigital.setText(String.valueOf(mCamSet.getPicZOOM_DIGITAL()));
         tbxPicZoomOptical.setText(String.valueOf(mCamSet.getPicZOOM_OPTICAL()));
+        tbxPicWBTemp.setText(String.valueOf(mCamSet.getPicWHITE_BALANCE_TEMP()));
 
         final Button button = findViewById(R.id.btnSave);
         button.setOnClickListener(new View.OnClickListener() {
@@ -178,6 +181,15 @@ public class AdminCameraActivity extends AppCompatActivity {
                 appSet = new TAppSetting();
                 appSet.setAppSetName("PIC_ZOOM_OPTICAL");
                 appSet.setAppSetInt(Integer.parseInt(tbxPicZoomOptical.getText().toString()));
+                bSuccess = dba.SetAppSettingValue(appSet);
+            }
+
+            iCur = mCamSet.getPicWHITE_BALANCE_TEMP();
+            iSet = Integer.parseInt(tbxPicWBTemp.getText().toString());
+            if (iCur != iSet) {
+                appSet = new TAppSetting();
+                appSet.setAppSetName("PIC_WHITE_BALANCE_TEMP");
+                appSet.setAppSetInt(Integer.parseInt(tbxPicWBTemp.getText().toString()));
                 bSuccess = dba.SetAppSettingValue(appSet);
             }
 

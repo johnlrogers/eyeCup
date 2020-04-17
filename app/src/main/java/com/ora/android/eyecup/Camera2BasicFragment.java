@@ -40,6 +40,7 @@ import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.RggbChannelVector;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.AudioManager;
 import android.media.Image;
@@ -85,6 +86,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 
+import static android.hardware.camera2.CameraMetadata.CONTROL_AWB_MODE_OFF;
 import static android.widget.ImageView.ScaleType.CENTER_CROP;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANTS;
 import static com.ora.android.eyecup.Globals.APP_DIR_PARTICIPANT_PICS;
@@ -122,6 +124,10 @@ public class Camera2BasicFragment extends Fragment
     private int PIC_ZOOM_DIGITAL = 1;
     private int PIC_ZOOM_OPTICAL = 1;
 //20200404 end
+//20200417
+    private int PIC_WHITE_BALANCE_TEMP = 4800;
+    private CameraSettings mCamSet = new CameraSettings();
+//20200417 end
 
     /**
      * Conversion from screen rotation to JPEG orientation.
@@ -517,6 +523,10 @@ public class Camera2BasicFragment extends Fragment
                     Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
                     if (afState == null) {
                         captureStillPicture();
+//20200415
+                    } else if (afState == 0) {
+                        captureStillPicture();
+//20200415 end
                     } else if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
                             CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
                         // CONTROL_AE_STATE can be null on some devices
@@ -893,7 +903,9 @@ public class Camera2BasicFragment extends Fragment
         PIC_CROP_H_FACTOR = act.getPicCROP_H_FACTOR();
         PIC_ZOOM_DIGITAL = act.getPicZOOM_DIGITAL();
         PIC_ZOOM_OPTICAL = act.getPicZOOM_OPTICAL();
-
+//20200417
+        PIC_WHITE_BALANCE_TEMP = act.getPicWHITE_BALANCE_TEMP();
+//20200417 end
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
@@ -981,6 +993,10 @@ public class Camera2BasicFragment extends Fragment
             if (bManualCamera) {
                 Log.d("C2BF:createCameraPreviewSession", "createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)");
                 mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+//20200415
+                Log.d(TAG, "CameraCaptureSession.StateCallback() (CONTROL_AE_MODE): " + mPreviewRequest.CONTROL_AE_MODE);
+                Log.d(TAG, "CameraCaptureSession.StateCallback() (CONTROL_AF_MODE): " + mPreviewRequest.CONTROL_AF_MODE);
+                Log.d(TAG, "CameraCaptureSession.StateCallback() (LENS_FOCUS_DISTANCE): " + mPreviewRequest.LENS_FOCUS_DISTANCE);
             } else {
                 Log.d("C2BF:createCameraPreviewSession", "createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)");
                 mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
@@ -1004,18 +1020,40 @@ public class Camera2BasicFragment extends Fragment
                             // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
                             try {
-                                // Auto focus should be continuous for camera preview.
-                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                                // Flash is automatically enabled when necessary.
-                                setAutoFlash(mPreviewRequestBuilder);
+//20200415 comment whole section
+//                                // Auto focus should be continuous for camera preview.
+//                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+//                                // Flash is automatically enabled when necessary.
+//                                setAutoFlash(mPreviewRequestBuilder);
+////20200414
+//                                Log.d("C2BF:CameraCaptureSession", "OnConfigured:setRepeatingRequest");
+//                                mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mBackgroundHandler);
+                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);     //auto-focus off
+                                mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 100f / PIC_FOCUS_CM);                //100/cm
+                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);     //OFF to set Aperture, Exposure, Sens, FD
+//20200415 end
+//20200417
+////20200416
+//                                int iWB = mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AWB_MODE);                              //get default white balance mode
+                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);           //auto-everything off (Exposure, White Balance, Focus)
+////20200416
+//                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, iWB);                                   //set white balance back to default
+                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CONTROL_AWB_MODE_OFF);                  //set white balance OFF
+                                RggbChannelVector rggbChannelVector = mCamSet.convertTemperatureToRggb(PIC_WHITE_BALANCE_TEMP);
+                                mPreviewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+                                mPreviewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector);
+//20200417 end
                                 // Finally, we start displaying the camera preview.
                                 mPreviewRequest = mPreviewRequestBuilder.build();
-                                Log.d("C2BF:CameraCaptureSession", "OnConfigured:setRepeatingRequest");
-                                mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mBackgroundHandler);
+
+//20200415
+                                Log.d(TAG, "CameraCaptureSession.StateCallback() (CONTROL_AE_MODE): " + mPreviewRequest.CONTROL_AE_MODE);
+                                Log.d(TAG, "CameraCaptureSession.StateCallback() (CONTROL_AF_MODE): " + mPreviewRequest.CONTROL_AF_MODE);
+                                Log.d(TAG, "CameraCaptureSession.StateCallback() (LENS_FOCUS_DISTANCE): " + mPreviewRequest.LENS_FOCUS_DISTANCE);
 
 //                            } catch (CameraAccessException | NullPointerException | Exception e) {
-                            } catch (CameraAccessException e) {
-                                Log.e("C2BF:createCaptureSession:OnConfigured:CAEx", e.toString());
+//                            } catch (CameraAccessException e) {
+//                                Log.e("C2BF:createCaptureSession:OnConfigured:CAEx", e.toString());
                                 //todo handle
                             } catch (NullPointerException e) {
                                 Log.e("C2BF:createCaptureSession:OnConfigured:NPEx", e.toString());
@@ -1090,7 +1128,24 @@ public class Camera2BasicFragment extends Fragment
     private void lockFocus() {
         try {
             // This is how to tell the camera to lock focus.
-            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+//20200415 comment
+//            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);     //auto-focus off
+            mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 100f / PIC_FOCUS_CM);                //100/cm
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);     //OFF to set Aperture, Exposure, Sens, FD
+//20200415 end
+//20200417
+////20200416
+//                                int iWB = mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AWB_MODE);                              //get default white balance mode
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);           //auto-everything off (Exposure, White Balance, Focus)
+////20200416
+//                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, iWB);                                   //set white balance back to default
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CONTROL_AWB_MODE_OFF);                  //set white balance OFF
+            RggbChannelVector rggbChannelVector = mCamSet.convertTemperatureToRggb(PIC_WHITE_BALANCE_TEMP);
+            mPreviewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+            mPreviewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector);
+//20200417 end
+
             // Tell #mCaptureCallback to wait for the lock.
             mState = STATE_WAITING_LOCK;
 
@@ -1111,9 +1166,27 @@ public class Camera2BasicFragment extends Fragment
     private void runPrecaptureSequence() {
         try {
             // This is how to tell the camera to trigger.
-            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+//20200415 comment
+//            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);     //auto-focus off
+            mPreviewRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 100f / PIC_FOCUS_CM);                //100/cm
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);     //OFF to set Aperture, Exposure, Sens, FD
+//20200415 end
+//20200417
+////20200416
+//                                int iWB = mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AWB_MODE);                              //get default white balance mode
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);           //auto-everything off (Exposure, White Balance, Focus)
+////20200416
+//                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, iWB);                                   //set white balance back to default
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CONTROL_AWB_MODE_OFF);                  //set white balance OFF
+            RggbChannelVector rggbChannelVector = mCamSet.convertTemperatureToRggb(PIC_WHITE_BALANCE_TEMP);
+            mPreviewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+            mPreviewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector);
+//20200417 end
+
             // Tell #mCaptureCallback to wait for the precapture sequence to be set.
             mState = STATE_WAITING_PRECAPTURE;
+
             Log.d("C2BF:runPrecaptureSequence", "mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler)");
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
@@ -1143,14 +1216,21 @@ public class Camera2BasicFragment extends Fragment
             try {
                 if (bManualCamera) {
                     Log.d("C2BF:Manual", "captureBuilder.get(CaptureRequest.CONTROL_AWB_MODE)");
-                    int iWB = captureBuilder.get(CaptureRequest.CONTROL_AWB_MODE);                              //get default white balance mode
-
+//20200417
+////20200416
+//                                int iWB = captureBuilder.get(CaptureRequest.CONTROL_AWB_MODE);                              //get default white balance mode
                     captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);           //auto-everything off (Exposure, White Balance, Focus)
-                    captureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, iWB);                                   //set white balance back to default
+////20200416
+//                                captureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, iWB);                                   //set white balance back to default
+                    captureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CONTROL_AWB_MODE_OFF);                  //set white balance OFF
+                    RggbChannelVector rggbChannelVector = mCamSet.convertTemperatureToRggb(PIC_WHITE_BALANCE_TEMP);
+                    captureBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+                    captureBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector);
+//20200417 end
 
-                    captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);     //auto-focus off
                     captureBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_SINGLE);            //flash single
 
+                    captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);     //auto-focus off
                     captureBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 100f / PIC_FOCUS_CM);                //100/cm
 //20200404
 //                    captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
@@ -1167,6 +1247,10 @@ public class Camera2BasicFragment extends Fragment
                     captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
                     setAutoFlash(captureBuilder);
                 }
+//20200415
+                Log.d(TAG, "captureStillPicture (CONTROL_AE_MODE): " + CaptureRequest.CONTROL_AE_MODE);
+                Log.d(TAG, "captureStillPicture (CONTROL_AF_MODE): " + CaptureRequest.CONTROL_AF_MODE);
+                Log.d(TAG, "captureStillPicture (LENS_FOCUS_DISTANCE): " + CaptureRequest.LENS_FOCUS_DISTANCE);
 
                 Log.d("C2BF", "captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ...)");
             int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
@@ -1211,13 +1295,27 @@ public class Camera2BasicFragment extends Fragment
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
 
-                    Log.d(TAG, "request-before: " + request.get(CaptureRequest.SENSOR_SENSITIVITY));
-                    Log.d(TAG, "result-before: " + result.get(CaptureResult.SENSOR_SENSITIVITY));
+                    Log.d(TAG, "request-before (SENSOR_SENSITIVITY): " + request.get(CaptureRequest.SENSOR_SENSITIVITY));
+                    Log.d(TAG, "result-before (SENSOR_SENSITIVITY): " + result.get(CaptureResult.SENSOR_SENSITIVITY));
+ //20200415
+                    Log.d(TAG, "request-before (CONTROL_AE_MODE): " + request.get(CaptureRequest.CONTROL_AE_MODE));
+                    Log.d(TAG, "result-before (CONTROL_AE_MODE): " + result.get(CaptureResult.CONTROL_AE_MODE));
+                    Log.d(TAG, "request-before (CONTROL_AF_MODE): " + request.get(CaptureRequest.CONTROL_AF_MODE));
+                    Log.d(TAG, "result-before (CONTROL_AF_MODE): " + result.get(CaptureResult.CONTROL_AF_MODE));
+                    Log.d(TAG, "request-before (LENS_FOCUS_DISTANCE): " + request.get(CaptureRequest.LENS_FOCUS_DISTANCE));
+                    Log.d(TAG, "result-before (LENS_FOCUS_DISTANCE): " + result.get(CaptureResult.LENS_FOCUS_DISTANCE));
 
                     super.onCaptureCompleted(session, request, result);
 
-                    Log.d(TAG, "request-after: " + request.get(CaptureRequest.SENSOR_SENSITIVITY));
-                    Log.d(TAG, "result-after: " + result.get(CaptureResult.SENSOR_SENSITIVITY));
+                    Log.d(TAG, "request-after (SENSOR_SENSITIVITY): " + request.get(CaptureRequest.SENSOR_SENSITIVITY));
+                    Log.d(TAG, "result-after (SENSOR_SENSITIVITY): " + result.get(CaptureResult.SENSOR_SENSITIVITY));
+//20200415
+                    Log.d(TAG, "request-after (CONTROL_AE_MODE): " + request.get(CaptureRequest.CONTROL_AE_MODE));
+                    Log.d(TAG, "result-after (CONTROL_AE_MODE): " + result.get(CaptureResult.CONTROL_AE_MODE));
+                    Log.d(TAG, "request-after (CONTROL_AF_MODE): " + request.get(CaptureRequest.CONTROL_AF_MODE));
+                    Log.d(TAG, "result-after (CONTROL_AF_MODE): " + result.get(CaptureResult.CONTROL_AF_MODE));
+                    Log.d(TAG, "request-after (LENS_FOCUS_DISTANCE): " + request.get(CaptureRequest.LENS_FOCUS_DISTANCE));
+                    Log.d(TAG, "result-after (LENS_FOCUS_DISTANCE): " + result.get(CaptureResult.LENS_FOCUS_DISTANCE));
 
                     Log.i(TAG, mFile.toString());
                     unlockFocus();
@@ -1277,18 +1375,19 @@ public class Camera2BasicFragment extends Fragment
             Log.d("C2BF", "unlockFocus");
 
             // Reset the auto-focus trigger
-
-            Log.d("C2BF:unlockFocus: ", "mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)");
-            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
-
-            Log.d("C2BF:unlockFocus: ", "setAutoFlash(mPreviewRequestBuilder)");
-            setAutoFlash(mPreviewRequestBuilder);
-
+//20200415 comment
+//            Log.d("C2BF:unlockFocus: ", "mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)");
+//            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+//
+//            Log.d("C2BF:unlockFocus: ", "setAutoFlash(mPreviewRequestBuilder)");
+//            setAutoFlash(mPreviewRequestBuilder);
+//20200415 end comment
             Log.d("C2BF:unlockFocus: ", "mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler)");
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
             // After this, the camera will go back to the normal state of preview.
             mState = STATE_PREVIEW;
 
+//20200414
             Log.d("C2BF:unlockFocus: ", "mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mBackgroundHandler)");
             mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mBackgroundHandler);
 //        } catch (CameraAccessException e) {
